@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@id/navigation_pictures">
+
+    <fragment
+        android:id="@+id/navigation_pictures"
+        android:name="com.bretttech.gallery.ui.pictures.PicturesFragment"
+        android:label="@string/title_pictures"
+        tools:layout="@layout/fragment_pictures" />
+
+    <fragment
+        android:id="@+id/navigation_albums"
+        android:name="com.bretttech.gallery.ui.albums.AlbumsFragment"
+        android:label="@string/title_albums"
+        tools:layout="@layout/fragment_albums" />
+
+    <fragment
+        android:id="@+id/navigation_menu"
+        android:name="com.bretttech.gallery.ui.menu.MenuFragment"
+        android:label="@string/title_menu"
+        tools:layout="@layout/fragment_menu" />
+</navigation>
+
