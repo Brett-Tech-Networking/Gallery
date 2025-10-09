@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
+    // This correctly applies the Safe Args plugin to your app module
     alias(libs.plugins.androidx.navigation.safeargs)
-
 }
 
 android {
@@ -28,8 +28,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
     buildFeatures {
         viewBinding = true
@@ -53,6 +53,5 @@ dependencies {
     implementation(libs.glide)
     // Add pinch zoom in gallery
     implementation(libs.photoview)
-
-
 }
+
