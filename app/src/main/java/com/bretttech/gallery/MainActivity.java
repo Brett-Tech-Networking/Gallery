@@ -23,6 +23,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 public class MainActivity extends AppCompatActivity {
 
     private ActivityMainBinding binding;
+    private NavController navController;
 
     // Launcher to request media permission
     private final ActivityResultLauncher<String> requestPermissionLauncher =
@@ -63,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
         // Get NavController from NavHostFragment
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.nav_host_fragment_activity_main);
-        NavController navController = navHostFragment.getNavController();
+        navController = navHostFragment.getNavController();
 
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(binding.navView, navController);
@@ -94,5 +95,10 @@ public class MainActivity extends AppCompatActivity {
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requestPermissionLauncher.launch(permission);
         }
+    }
+
+    @Override
+    public boolean onSupportNavigateUp() {
+        return navController.navigateUp() || super.onSupportNavigateUp();
     }
 }

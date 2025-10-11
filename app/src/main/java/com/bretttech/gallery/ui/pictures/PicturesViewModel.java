@@ -4,7 +4,6 @@ import android.app.Application;
 import android.content.ContentUris;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build;
 import android.provider.MediaStore;
 
 import androidx.lifecycle.AndroidViewModel;
@@ -32,9 +31,7 @@ public class PicturesViewModel extends AndroidViewModel {
     public void loadImages() {
         executorService.execute(() -> {
             List<Image> imageList = new ArrayList<>();
-            // Define the columns we want to retrieve
             String[] projection = {MediaStore.Images.Media._ID};
-            // Define the sort order
             String sortOrder = MediaStore.Images.Media.DATE_TAKEN + " DESC";
 
             try (Cursor cursor = getApplication().getContentResolver().query(

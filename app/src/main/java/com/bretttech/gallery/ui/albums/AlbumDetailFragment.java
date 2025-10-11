@@ -13,18 +13,21 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 
+import com.bretttech.gallery.ImageDataHolder;
 import com.bretttech.gallery.PhotoViewActivity;
 import com.bretttech.gallery.databinding.FragmentAlbumDetailBinding;
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.PicturesAdapter;
 
 import java.io.File;
+import java.util.List;
 
 public class AlbumDetailFragment extends Fragment {
 
     private FragmentAlbumDetailBinding binding;
     private AlbumDetailViewModel viewModel;
     private PicturesAdapter picturesAdapter;
+    private List<Image> images;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -34,12 +37,10 @@ public class AlbumDetailFragment extends Fragment {
 
         setupRecyclerView();
 
-        // Use the correct key to get the folder path
         String albumFolderPath = getArguments() != null ? getArguments().getString("albumFolderPath") : null;
         if (albumFolderPath != null) {
             viewModel.loadImagesFromAlbum(albumFolderPath);
 
-            // Set the title of the action bar to the folder name
             if (((AppCompatActivity) getActivity()) != null && ((AppCompatActivity) getActivity()).getSupportActionBar() != null) {
                 String albumName = new File(albumFolderPath).getName();
                 ((AppCompatActivity) getActivity()).getSupportActionBar().setTitle(albumName);
@@ -47,6 +48,7 @@ public class AlbumDetailFragment extends Fragment {
         }
 
         viewModel.getImages().observe(getViewLifecycleOwner(), images -> {
+            this.images = images;
             picturesAdapter.setImages(images);
         });
 
@@ -55,9 +57,12 @@ public class AlbumDetailFragment extends Fragment {
 
     private void setupRecyclerView() {
         picturesAdapter = new PicturesAdapter(image -> {
-            Intent intent = new Intent(getContext(), PhotoViewActivity.class);
-            intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_URI, image.getUri().toString());
-            startActivity(intent);
+            if (images != null && !images.isEmpty()) {
+                ImageDataHolder.getInstance().setImageList(images);
+                Intent intent = new Intent(getContext(), PhotoViewActivity.class);
+                intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_POSITION, images.indexOf(image));
+                startActivity(intent);
+            }
         });
         binding.recyclerViewAlbumDetail.setLayoutManager(new GridLayoutManager(getContext(), 3));
         binding.recyclerViewAlbumDetail.setAdapter(picturesAdapter);

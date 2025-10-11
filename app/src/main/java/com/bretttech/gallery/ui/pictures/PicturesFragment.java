@@ -19,24 +19,25 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bretttech.gallery.ImageDataHolder;
 import com.bretttech.gallery.PhotoViewActivity;
 import com.bretttech.gallery.databinding.FragmentPicturesBinding;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class PicturesFragment extends Fragment {
 
     private FragmentPicturesBinding binding;
     private PicturesViewModel picturesViewModel;
     private PicturesAdapter picturesAdapter;
+    private List<Image> images = new ArrayList<>();
 
-    // Prepare the permission request launcher
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (isGranted) {
-                    // Permission is granted. Continue the action or workflow in your app.
                     picturesViewModel.loadImages();
                 } else {
-                    // Explain to the user that the feature is unavailable because the
-                    // feature requires a permission that the user has denied.
                     Toast.makeText(getContext(), "Permission denied to read your External storage", Toast.LENGTH_SHORT).show();
                 }
             });
@@ -51,6 +52,7 @@ public class PicturesFragment extends Fragment {
         setupRecyclerView();
 
         picturesViewModel.getImages().observe(getViewLifecycleOwner(), images -> {
+            this.images = images;
             picturesAdapter.setImages(images);
         });
 
@@ -63,12 +65,11 @@ public class PicturesFragment extends Fragment {
         RecyclerView recyclerView = binding.recyclerViewPictures;
         recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3));
 
-        // ✅ Updated: pass OnPictureClickListener to match new adapter constructor
-        picturesAdapter = new PicturesAdapter(new PicturesAdapter.OnPictureClickListener() {
-            @Override
-            public void onPictureClick(Image image) {
+        picturesAdapter = new PicturesAdapter(image -> {
+            if (images != null && !images.isEmpty()) {
+                ImageDataHolder.getInstance().setImageList(images);
                 Intent intent = new Intent(getContext(), PhotoViewActivity.class);
-                intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_URI, image.getUri().toString());
+                intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_POSITION, images.indexOf(image));
                 startActivity(intent);
             }
         });
@@ -79,19 +80,15 @@ public class PicturesFragment extends Fragment {
     private void requestStoragePermission() {
         String permission;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+
             permission = Manifest.permission.READ_MEDIA_IMAGES;
         } else {
-            // Older versions
             permission = Manifest.permission.READ_EXTERNAL_STORAGE;
         }
 
         if (ContextCompat.checkSelfPermission(
                 requireContext(), permission) == PackageManager.PERMISSION_GRANTED) {
-            // You can use the API that requires the permission.
             picturesViewModel.loadImages();
         } else {
-            // You can directly ask for the permission.
             requestPermissionLauncher.launch(permission);
         }
     }
