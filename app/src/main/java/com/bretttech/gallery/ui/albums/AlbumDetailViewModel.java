@@ -1,7 +1,6 @@
 package com.bretttech.gallery.ui.albums;
 
 import android.app.Application;
-import android.content.ContentUris;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.MediaStore;
@@ -13,43 +12,58 @@ import androidx.lifecycle.MutableLiveData;
 
 import com.bretttech.gallery.ui.pictures.Image;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 public class AlbumDetailViewModel extends AndroidViewModel {
 
-    private final MutableLiveData<List<Image>> images = new MutableLiveData<>();
+    private final MutableLiveData<List<Image>> imagesLiveData = new MutableLiveData<>();
 
     public AlbumDetailViewModel(@NonNull Application application) {
         super(application);
     }
 
     public LiveData<List<Image>> getImages() {
-        return images;
+        return imagesLiveData;
     }
 
-    public void loadImagesFromAlbum(String albumName) {
-        List<Image> imageList = new ArrayList<>();
-        Uri collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-        String[] projection = {MediaStore.Images.Media._ID};
-        String selection = MediaStore.Images.Media.BUCKET_DISPLAY_NAME + " = ?";
-        String[] selectionArgs = new String[]{albumName};
-        String sortOrder = MediaStore.Images.Media.DATE_TAKEN + " DESC";
+    // Filter images strictly by folder path
+    public void loadImagesFromAlbum(String folderPath) {
+        List<Image> images = new ArrayList<>();
 
-        try (Cursor cursor = getApplication().getContentResolver().query(
-                collection,
+        Uri imagesUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+        String[] projection = { MediaStore.Images.Media._ID, MediaStore.Images.Media.DATA };
+
+        Cursor cursor = getApplication().getContentResolver().query(
+                imagesUri,
                 projection,
-                selection,
-                selectionArgs,
-                sortOrder
-        )) {
-            int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+                null,
+                null,
+                MediaStore.Images.Media.DATE_ADDED + " DESC"
+        );
+
+        if (cursor != null) {
+            int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+            int dataCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+
             while (cursor.moveToNext()) {
-                long id = cursor.getLong(idColumn);
-                Uri contentUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
-                imageList.add(new Image(contentUri));
+                long id = cursor.getLong(idCol);
+                String path = cursor.getString(dataCol);
+
+                File file = new File(path);
+                if (!file.exists() || file.isDirectory()) continue;
+
+                String currentFolder = file.getParentFile().getAbsolutePath();
+                if (!currentFolder.equals(folderPath)) continue;
+
+                Uri contentUri = Uri.withAppendedPath(imagesUri, String.valueOf(id));
+                images.add(new Image(contentUri));
             }
+
+            cursor.close();
         }
-        images.setValue(imageList);
+
+        imagesLiveData.postValue(images);
     }
 }

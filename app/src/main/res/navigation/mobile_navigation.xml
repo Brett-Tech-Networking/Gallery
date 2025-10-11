@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mobile_navigation"
-    app:startDestination="@id/navigation_pictures">
+    app:startDestination="@id/navigation_albums">
 
     <fragment
         android:id="@+id/navigation_pictures"
@@ -15,7 +15,25 @@
         android:id="@+id/navigation_albums"
         android:name="com.bretttech.gallery.ui.albums.AlbumsFragment"
         android:label="@string/title_albums"
-        tools:layout="@layout/fragment_albums" />
+        tools:layout="@layout/fragment_albums">
+
+        <!-- Navigate to the album detail fragment -->
+        <action
+            android:id="@+id/action_navigation_albums_to_albumDetailFragment"
+            app:destination="@id/albumDetailFragment" />
+
+        <!-- Optional: Navigate to all pictures -->
+        <action
+            android:id="@+id/action_navigation_albums_to_navigation_pictures"
+            app:destination="@id/navigation_pictures" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/albumDetailFragment"
+        android:name="com.bretttech.gallery.ui.albums.AlbumDetailFragment"
+        android:label="Album Detail"
+        tools:layout="@layout/fragment_album_detail" />
 
     <fragment
         android:id="@+id/navigation_menu"
@@ -23,4 +41,3 @@
         android:label="@string/title_menu"
         tools:layout="@layout/fragment_menu" />
 </navigation>
-

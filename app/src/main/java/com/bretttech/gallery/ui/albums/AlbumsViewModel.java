@@ -1,7 +1,6 @@
 package com.bretttech.gallery.ui.albums;
 
 import android.app.Application;
-import android.content.ContentUris;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.MediaStore;
@@ -11,17 +10,15 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
+import java.io.File;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class AlbumsViewModel extends AndroidViewModel {
 
-    private final MutableLiveData<List<Album>> albums = new MutableLiveData<>();
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final MutableLiveData<List<Album>> albumsLiveData = new MutableLiveData<>();
 
     public AlbumsViewModel(@NonNull Application application) {
         super(application);
@@ -29,53 +26,57 @@ public class AlbumsViewModel extends AndroidViewModel {
     }
 
     public LiveData<List<Album>> getAlbums() {
-        return albums;
+        return albumsLiveData;
     }
 
-    private void loadAlbums() {
-        executorService.execute(() -> {
-            Map<String, Album> albumMap = new LinkedHashMap<>();
+    public void loadAlbums() {
+        Map<String, List<Uri>> folderMap = new HashMap<>();
 
-            String[] projection = {
-                    MediaStore.Images.Media._ID,
-                    MediaStore.Images.Media.BUCKET_ID,
-                    MediaStore.Images.Media.BUCKET_DISPLAY_NAME
-            };
-            String sortOrder = MediaStore.Images.Media.DATE_TAKEN + " DESC";
+        Uri imagesUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+        String[] projection = { MediaStore.Images.Media._ID, MediaStore.Images.Media.DATA };
 
-            try (Cursor cursor = getApplication().getContentResolver().query(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    projection,
-                    null,
-                    null,
-                    sortOrder
-            )) {
-                if (cursor != null) {
-                    int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
-                    int bucketNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME);
+        Cursor cursor = getApplication().getContentResolver().query(
+                imagesUri,
+                projection,
+                null,
+                null,
+                MediaStore.Images.Media.DATE_ADDED + " DESC"
+        );
 
-                    while (cursor.moveToNext()) {
-                        long id = cursor.getLong(idColumn);
-                        String bucketName = cursor.getString(bucketNameColumn);
-                        Uri contentUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+        if (cursor != null) {
+            int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+            int dataCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
 
-                        // If album already exists, increment count. Otherwise, create new album.
-                        if (albumMap.containsKey(bucketName)) {
-                            Album existingAlbum = albumMap.get(bucketName);
-                            if (existingAlbum != null) {
-                                albumMap.put(bucketName, new Album(
-                                        existingAlbum.getName(),
-                                        existingAlbum.getCoverImageUri(), // Keep the first (most recent) image as cover
-                                        existingAlbum.getImageCount() + 1
-                                ));
-                            }
-                        } else {
-                            albumMap.put(bucketName, new Album(bucketName, contentUri, 1));
-                        }
-                    }
-                }
+            while (cursor.moveToNext()) {
+                long id = cursor.getLong(idCol);
+                String path = cursor.getString(dataCol);
+
+                File file = new File(path);
+                if (!file.exists() || file.isDirectory()) continue;
+
+                // Full folder path used as key to prevent merging
+                String folderPath = file.getParentFile().getAbsolutePath();
+
+                folderMap.putIfAbsent(folderPath, new ArrayList<>());
+
+                Uri contentUri = Uri.withAppendedPath(imagesUri, String.valueOf(id));
+                folderMap.get(folderPath).add(contentUri);
             }
-            albums.postValue(new ArrayList<>(albumMap.values()));
-        });
+
+            cursor.close();
+        }
+
+        // Convert to Album objects with friendly names
+        List<Album> albums = new ArrayList<>();
+        for (Map.Entry<String, List<Uri>> entry : folderMap.entrySet()) {
+            String folderPath = entry.getKey();
+            List<Uri> uris = entry.getValue();
+            if (!uris.isEmpty()) {
+                String folderName = new File(folderPath).getName();
+                albums.add(new Album(folderName, uris.get(0), uris.size(), folderPath));
+            }
+        }
+
+        albumsLiveData.postValue(albums);
     }
 }

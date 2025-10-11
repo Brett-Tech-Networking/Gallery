@@ -2,13 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Request permission to read images from storage -->
+    <!-- Permissions -->
     <!-- For Android 13 (API 33) and above -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <!-- For older versions (fallback) -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+    <!-- For Android 12 and below -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-
 
     <application
         android:allowBackup="true"
@@ -20,16 +20,23 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Gallery"
         tools:targetApi="31">
+
+        <!-- Launcher activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- ✅ Add PhotoViewActivity declaration -->
+        <activity
+            android:name=".PhotoViewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Gallery" />
     </application>
 
 </manifest>

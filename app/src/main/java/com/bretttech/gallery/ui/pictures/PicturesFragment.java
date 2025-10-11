@@ -1,6 +1,7 @@
 package com.bretttech.gallery.ui.pictures;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -18,6 +19,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bretttech.gallery.PhotoViewActivity;
 import com.bretttech.gallery.databinding.FragmentPicturesBinding;
 
 public class PicturesFragment extends Fragment {
@@ -39,6 +41,7 @@ public class PicturesFragment extends Fragment {
                 }
             });
 
+    @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
         picturesViewModel = new ViewModelProvider(this).get(PicturesViewModel.class);
@@ -58,9 +61,18 @@ public class PicturesFragment extends Fragment {
 
     private void setupRecyclerView() {
         RecyclerView recyclerView = binding.recyclerViewPictures;
-        // Display images in a grid with 3 columns
         recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3));
-        picturesAdapter = new PicturesAdapter();
+
+        // ✅ Updated: pass OnPictureClickListener to match new adapter constructor
+        picturesAdapter = new PicturesAdapter(new PicturesAdapter.OnPictureClickListener() {
+            @Override
+            public void onPictureClick(Image image) {
+                Intent intent = new Intent(getContext(), PhotoViewActivity.class);
+                intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_URI, image.getUri().toString());
+                startActivity(intent);
+            }
+        });
+
         recyclerView.setAdapter(picturesAdapter);
     }
 

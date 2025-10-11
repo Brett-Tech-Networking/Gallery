@@ -51,7 +51,6 @@ public class AlbumDetailFragment extends Fragment {
     }
 
     private void setupRecyclerView() {
-        // This is the corrected adapter initialization with a click listener.
         picturesAdapter = new PicturesAdapter(new PicturesAdapter.OnPictureClickListener() {
             @Override
             public void onPictureClick(Image image) {
@@ -70,4 +69,3 @@ public class AlbumDetailFragment extends Fragment {
         binding = null;
     }
 }
-

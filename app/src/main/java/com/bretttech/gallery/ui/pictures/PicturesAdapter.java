@@ -1,5 +1,6 @@
 package com.bretttech.gallery.ui.pictures;
 
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -8,7 +9,7 @@ import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bretttech.gallery.R;
+import com.bretttech.gallery.databinding.ItemPictureBinding;
 import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
@@ -17,21 +18,39 @@ import java.util.List;
 public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.PictureViewHolder> {
 
     private List<Image> images = new ArrayList<>();
+    private final OnPictureClickListener listener;
+
+    // Interface for click handling
+    public interface OnPictureClickListener {
+        void onPictureClick(Image image);
+    }
+
+    public PicturesAdapter(OnPictureClickListener listener) {
+        this.listener = listener;
+    }
 
     @NonNull
     @Override
     public PictureViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_picture, parent, false);
-        return new PictureViewHolder(view);
+        ItemPictureBinding binding = ItemPictureBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false);
+        return new PictureViewHolder(binding);
     }
 
     @Override
     public void onBindViewHolder(@NonNull PictureViewHolder holder, int position) {
         Image image = images.get(position);
-        // Use Glide library to efficiently load the image into the ImageView
+        Uri uri = image.getUri();
+
         Glide.with(holder.imageView.getContext())
-                .load(image.getUri())
+                .load(uri)
+                .centerCrop()
                 .into(holder.imageView);
+
+        holder.itemView.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onPictureClick(image);
+            }
+        });
     }
 
     @Override
@@ -47,9 +66,9 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
     static class PictureViewHolder extends RecyclerView.ViewHolder {
         ImageView imageView;
 
-        public PictureViewHolder(@NonNull View itemView) {
-            super(itemView);
-            imageView = itemView.findViewById(R.id.image_view);
+        PictureViewHolder(ItemPictureBinding binding) {
+            super(binding.getRoot());
+            imageView = binding.imageView;
         }
     }
 }

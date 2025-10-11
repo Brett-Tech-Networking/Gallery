@@ -1,5 +1,6 @@
 package com.bretttech.gallery.ui.albums;
 
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,28 +15,33 @@ import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewHolder> {
 
-    private List<Album> albums = new ArrayList<>();
+    private final List<Album> albums;
+    private final OnAlbumClickListener listener;
+
+    public interface OnAlbumClickListener {
+        void onAlbumClick(Album album);
+    }
+
+    public AlbumsAdapter(List<Album> albums, OnAlbumClickListener listener) {
+        this.albums = albums != null ? albums : new ArrayList<>();
+        this.listener = listener;
+    }
 
     @NonNull
     @Override
     public AlbumViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_album, parent, false);
+        View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_album, parent, false);
         return new AlbumViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull AlbumViewHolder holder, int position) {
         Album album = albums.get(position);
-        holder.albumName.setText(album.getName());
-        holder.albumImageCount.setText(String.format(Locale.getDefault(), "%d Photos", album.getImageCount()));
-
-        Glide.with(holder.albumCover.getContext())
-                .load(album.getCoverImageUri())
-                .into(holder.albumCover);
+        holder.bind(album, listener);
     }
 
     @Override
@@ -43,21 +49,38 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
         return albums.size();
     }
 
-    public void setAlbums(List<Album> albums) {
-        this.albums = albums;
+    public void setAlbums(List<Album> newAlbums) {
+        albums.clear();
+        if (newAlbums != null) {
+            albums.addAll(newAlbums);
+        }
         notifyDataSetChanged();
     }
 
     static class AlbumViewHolder extends RecyclerView.ViewHolder {
-        ImageView albumCover;
-        TextView albumName;
-        TextView albumImageCount;
+        private final ImageView albumCover;
+        private final TextView albumName;
+        private final TextView albumImageCount;
 
         public AlbumViewHolder(@NonNull View itemView) {
             super(itemView);
             albumCover = itemView.findViewById(R.id.album_cover);
             albumName = itemView.findViewById(R.id.album_name);
             albumImageCount = itemView.findViewById(R.id.album_image_count);
+        }
+
+        public void bind(final Album album, final OnAlbumClickListener listener) {
+            albumName.setText(album.getName());
+            albumImageCount.setText(album.getImageCount() + " Photos");
+
+            Uri coverUri = album.getCoverImageUri();
+            Glide.with(itemView.getContext())
+                    .load(coverUri)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_album_placeholder)
+                    .into(albumCover);
+
+            itemView.setOnClickListener(v -> listener.onAlbumClick(album));
         }
     }
 }
