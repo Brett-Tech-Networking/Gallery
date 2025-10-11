@@ -29,9 +29,9 @@ import com.bretttech.gallery.R;
 import com.bretttech.gallery.databinding.FragmentTrashBinding;
 import com.bretttech.gallery.ui.pictures.Image;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 public class TrashFragment extends Fragment {
 
@@ -61,7 +61,10 @@ public class TrashFragment extends Fragment {
 
         trashViewModel.getTrashedImages().observe(getViewLifecycleOwner(), images -> {
             trashAdapter.setTrashedImages(images);
-            ((AppCompatActivity) requireActivity()).getSupportActionBar().setSubtitle(images.size() + " items");
+            if (images != null) {
+                String subtitle = images.size() + " items";
+                ((AppCompatActivity) requireActivity()).getSupportActionBar().setSubtitle(subtitle);
+            }
         });
 
         return binding.getRoot();
@@ -95,12 +98,11 @@ public class TrashFragment extends Fragment {
             return super.onOptionsItemSelected(item);
         }
 
-        if (item.getItemId() == R.id.action_restore) {
+        int itemId = item.getItemId();
+        if (itemId == R.id.action_restore) {
             updateTrashStatus(selectedImage.getUri(), false);
             return true;
-        }
-
-        if (item.getItemId() == R.id.action_delete_forever) {
+        } else if (itemId == R.id.action_delete_forever) {
             deletePermanently(selectedImage.getUri());
             return true;
         }
@@ -142,5 +144,7 @@ public class TrashFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+        // Reset subtitle when leaving the fragment
+        ((AppCompatActivity) requireActivity()).getSupportActionBar().setSubtitle(null);
     }
 }

@@ -1,9 +1,13 @@
 package com.bretttech.gallery;
 
 import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.View;
+import android.os.Environment;
+import android.provider.Settings;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -25,7 +29,6 @@ public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private NavController navController;
 
-    // Launcher to request media permission
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (!isGranted) {
@@ -42,7 +45,6 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // Add padding for status bar
         ViewCompat.setOnApplyWindowInsetsListener(binding.navHostFragmentActivityMain,
                 (v, windowInsets) -> {
                     int insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
@@ -54,14 +56,12 @@ public class MainActivity extends AppCompatActivity {
 
         BottomNavigationView navView = binding.navView;
 
-        // Set default selected item to Albums
         navView.setSelectedItemId(R.id.navigation_albums);
 
         AppBarConfiguration appBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.navigation_pictures, R.id.navigation_albums, R.id.navigation_menu)
                 .build();
 
-        // Get NavController from NavHostFragment
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.nav_host_fragment_activity_main);
         navController = navHostFragment.getNavController();
@@ -69,7 +69,6 @@ public class MainActivity extends AppCompatActivity {
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(binding.navView, navController);
 
-        // Optional: Ensure selecting bottom nav always takes user to main fragment of that section
         navView.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
             if (id == R.id.navigation_pictures) {
@@ -84,16 +83,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkStoragePermission() {
-        String permission;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permission = Manifest.permission.READ_MEDIA_IMAGES;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                Uri uri = Uri.fromParts("package", getPackageName(), null);
+                intent.setData(uri);
+                startActivity(intent);
+            }
         } else {
-            permission = Manifest.permission.READ_EXTERNAL_STORAGE;
-        }
-
-        if (ContextCompat.checkSelfPermission(this, permission)
-                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissionLauncher.launch(permission);
+            String permission = Manifest.permission.READ_EXTERNAL_STORAGE;
+            if (ContextCompat.checkSelfPermission(this, permission)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(permission);
+            }
         }
     }
 

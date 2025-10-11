@@ -8,17 +8,21 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import com.bretttech.gallery.ui.pictures.Image;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class TrashViewModel extends AndroidViewModel {
+
+    private static final String TAG = "TrashViewModel";
 
     private final MutableLiveData<List<Image>> trashedImages = new MutableLiveData<>();
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -33,48 +37,56 @@ public class TrashViewModel extends AndroidViewModel {
 
     public void loadTrashedImages() {
         executorService.execute(() -> {
+            Log.d(TAG, "Starting to load trashed images with new query method...");
             List<Image> trashedImageList = new ArrayList<>();
-            // The system trash feature was added in Android 10 (API 29).
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { // This modern method is for Android 11+
                 ContentResolver contentResolver = getApplication().getContentResolver();
                 Cursor cursor = null;
                 try {
+                    // This is the URI for all media items on the device.
                     Uri queryUri = MediaStore.Files.getContentUri("external");
                     String[] projection = {MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.MEDIA_TYPE};
 
+                    // We will use a Bundle to create the query, which is the modern approach.
                     Bundle queryArgs = new Bundle();
 
-                    // This selection will find items that are in the trash.
-                    // It is the key to fixing the "false positives" issue.
-                    String selection = MediaStore.Files.FileColumns.IS_TRASHED + " = ?";
-                    String[] selectionArgs = {"1"};
+                    // This is the key change: We are now asking for items that are in the "trashed" state.
+                    queryArgs.putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_ONLY);
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        // For Android 11+, we use the modern query arguments.
-                        // The literal string values are used here to prevent the compile-time error.
-                        queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection);
-                        queryArgs.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, selectionArgs);
-                        cursor = contentResolver.query(queryUri, projection, queryArgs, null);
+                    Log.d(TAG, "Query URI: " + queryUri);
+                    Log.d(TAG, "Querying with MediaStore.QUERY_ARG_MATCH_TRASHED");
+
+                    cursor = contentResolver.query(queryUri, projection, queryArgs, null);
+
+                    if (cursor == null) {
+                        Log.e(TAG, "Query returned a null cursor.");
                     } else {
-                        // For Android 10, we use the older selection method.
-                        cursor = contentResolver.query(queryUri, projection, selection, selectionArgs, null);
-                    }
-
-                    if (cursor != null) {
+                        Log.d(TAG, "Query successful. Found " + cursor.getCount() + " items.");
                         int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID);
+                        int mediaTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE);
+
                         while (cursor.moveToNext()) {
-                            long id = cursor.getLong(idColumn);
-                            Uri contentUri = ContentUris.withAppendedId(queryUri, id);
-                            trashedImageList.add(new Image(contentUri));
+                            // We need to check if the found item is an image.
+                            int mediaType = cursor.getInt(mediaTypeColumn);
+                            if (mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE) {
+                                long id = cursor.getLong(idColumn);
+                                Uri contentUri = ContentUris.withAppendedId(queryUri, id);
+                                Log.d(TAG, "Found trashed image with URI: " + contentUri);
+                                trashedImageList.add(new Image(contentUri));
+                            }
                         }
                     }
+                } catch (Exception e) {
+                    Log.e(TAG, "An exception occurred while querying for trashed images.", e);
                 } finally {
                     if (cursor != null) {
                         cursor.close();
                     }
                 }
+            } else {
+                Log.w(TAG, "Device Android version is older than R, this method is not supported.");
             }
-            // For older versions, post an empty list as there is no system trash.
+            Log.d(TAG, "Finished loading. Posting " + trashedImageList.size() + " images to UI.");
             trashedImages.postValue(trashedImageList);
         });
     }
