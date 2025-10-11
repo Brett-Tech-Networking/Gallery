@@ -17,15 +17,9 @@
         android:label="@string/title_albums"
         tools:layout="@layout/fragment_albums">
 
-        <!-- Navigate to the album detail fragment -->
         <action
             android:id="@+id/action_navigation_albums_to_albumDetailFragment"
             app:destination="@id/albumDetailFragment" />
-
-        <!-- Optional: Navigate to all pictures -->
-        <action
-            android:id="@+id/action_navigation_albums_to_navigation_pictures"
-            app:destination="@id/navigation_pictures" />
 
     </fragment>
 
@@ -39,5 +33,15 @@
         android:id="@+id/navigation_menu"
         android:name="com.bretttech.gallery.ui.menu.MenuFragment"
         android:label="@string/title_menu"
-        tools:layout="@layout/fragment_menu" />
+        tools:layout="@layout/fragment_menu" >
+        <action
+            android:id="@+id/action_navigation_menu_to_trashFragment"
+            app:destination="@id/trashFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/trashFragment"
+        android:name="com.bretttech.gallery.ui.trash.TrashFragment"
+        android:label="@string/title_trash"
+        tools:layout="@layout/fragment_trash" />
 </navigation>

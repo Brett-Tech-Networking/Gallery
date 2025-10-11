@@ -3,4 +3,7 @@
     <string name="title_pictures">Pictures</string>
     <string name="title_albums">Albums</string>
     <string name="title_menu">Menu</string>
+    <string name="title_trash">Trash Bin</string>
+    <string name="action_restore">Restore</string>
+    <string name="action_delete_forever">Delete Forever</string>
 </resources>

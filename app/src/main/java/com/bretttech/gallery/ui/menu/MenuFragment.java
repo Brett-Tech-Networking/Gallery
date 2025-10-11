@@ -4,10 +4,11 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.fragment.NavHostFragment;
+import com.bretttech.gallery.R;
 import com.bretttech.gallery.databinding.FragmentMenuBinding;
 
 public class MenuFragment extends Fragment {
@@ -16,15 +17,17 @@ public class MenuFragment extends Fragment {
 
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
-        MenuViewModel menuViewModel =
-                new ViewModelProvider(this).get(MenuViewModel.class);
-
         binding = FragmentMenuBinding.inflate(inflater, container, false);
-        View root = binding.getRoot();
+        return binding.getRoot();
+    }
 
-        final TextView textView = binding.textMenu;
-        menuViewModel.getText().observe(getViewLifecycleOwner(), textView::setText);
-        return root;
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        binding.menuPopup.menuTrashBin.setOnClickListener(v -> {
+            NavHostFragment.findNavController(this).navigate(R.id.action_navigation_menu_to_trashFragment);
+        });
     }
 
     @Override

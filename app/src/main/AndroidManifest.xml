@@ -2,13 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions -->
-    <!-- For Android 13 (API 33) and above -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <!-- For Android 12 and below -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
 
     <application
         android:allowBackup="true"
@@ -19,9 +21,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Gallery"
+        android:requestLegacyExternalStorage="true"
         tools:targetApi="31">
 
-        <!-- Launcher activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -32,7 +34,6 @@
             </intent-filter>
         </activity>
 
-        <!-- ✅ Add PhotoViewActivity declaration -->
         <activity
             android:name=".PhotoViewActivity"
             android:exported="false"
