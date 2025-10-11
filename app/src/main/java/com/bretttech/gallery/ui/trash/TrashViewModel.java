@@ -1,8 +1,8 @@
 package com.bretttech.gallery.ui.trash;
 
 import android.app.Application;
-import android.content.ContentResolver;
 import android.content.ContentUris;
+import android.content.ContentResolver;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -43,7 +43,7 @@ public class TrashViewModel extends AndroidViewModel {
                 ContentResolver contentResolver = getApplication().getContentResolver();
                 Cursor cursor = null;
                 try {
-                    // This is the URI for all media items on the device.
+                    // This is the URI for all files (including media) on the device.
                     Uri queryUri = MediaStore.Files.getContentUri("external");
                     String[] projection = {MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.MEDIA_TYPE};
 
@@ -70,7 +70,9 @@ public class TrashViewModel extends AndroidViewModel {
                             int mediaType = cursor.getInt(mediaTypeColumn);
                             if (mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE) {
                                 long id = cursor.getLong(idColumn);
-                                Uri contentUri = ContentUris.withAppendedId(queryUri, id);
+                                // FIX: Use the specific Images collection URI for the content URI,
+                                // which is what MediaStore.createDeleteRequest expects for images.
+                                Uri contentUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
                                 Log.d(TAG, "Found trashed image with URI: " + contentUri);
                                 trashedImageList.add(new Image(contentUri));
                             }
