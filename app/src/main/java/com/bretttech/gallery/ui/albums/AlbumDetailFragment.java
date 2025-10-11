@@ -18,6 +18,8 @@ import com.bretttech.gallery.databinding.FragmentAlbumDetailBinding;
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.PicturesAdapter;
 
+import java.io.File;
+
 public class AlbumDetailFragment extends Fragment {
 
     private FragmentAlbumDetailBinding binding;
@@ -32,13 +34,14 @@ public class AlbumDetailFragment extends Fragment {
 
         setupRecyclerView();
 
-        // Safe Args will be used here once the build is fixed.
-        // For now, we get the argument directly to ensure compilation.
-        String albumName = getArguments() != null ? getArguments().getString("albumName") : null;
-        if (albumName != null) {
-            viewModel.loadImagesFromAlbum(albumName);
-            // Set the title of the action bar
+        // Use the correct key to get the folder path
+        String albumFolderPath = getArguments() != null ? getArguments().getString("albumFolderPath") : null;
+        if (albumFolderPath != null) {
+            viewModel.loadImagesFromAlbum(albumFolderPath);
+
+            // Set the title of the action bar to the folder name
             if (((AppCompatActivity) getActivity()) != null && ((AppCompatActivity) getActivity()).getSupportActionBar() != null) {
+                String albumName = new File(albumFolderPath).getName();
                 ((AppCompatActivity) getActivity()).getSupportActionBar().setTitle(albumName);
             }
         }
@@ -51,13 +54,10 @@ public class AlbumDetailFragment extends Fragment {
     }
 
     private void setupRecyclerView() {
-        picturesAdapter = new PicturesAdapter(new PicturesAdapter.OnPictureClickListener() {
-            @Override
-            public void onPictureClick(Image image) {
-                Intent intent = new Intent(getContext(), PhotoViewActivity.class);
-                intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_URI, image.getUri().toString());
-                startActivity(intent);
-            }
+        picturesAdapter = new PicturesAdapter(image -> {
+            Intent intent = new Intent(getContext(), PhotoViewActivity.class);
+            intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_URI, image.getUri().toString());
+            startActivity(intent);
         });
         binding.recyclerViewAlbumDetail.setLayoutManager(new GridLayoutManager(getContext(), 3));
         binding.recyclerViewAlbumDetail.setAdapter(picturesAdapter);

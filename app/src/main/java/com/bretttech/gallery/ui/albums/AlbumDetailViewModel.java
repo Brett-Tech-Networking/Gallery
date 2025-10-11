@@ -15,10 +15,13 @@ import com.bretttech.gallery.ui.pictures.Image;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class AlbumDetailViewModel extends AndroidViewModel {
 
     private final MutableLiveData<List<Image>> imagesLiveData = new MutableLiveData<>();
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     public AlbumDetailViewModel(@NonNull Application application) {
         super(application);
@@ -28,42 +31,33 @@ public class AlbumDetailViewModel extends AndroidViewModel {
         return imagesLiveData;
     }
 
-    // Filter images strictly by folder path
     public void loadImagesFromAlbum(String folderPath) {
-        List<Image> images = new ArrayList<>();
+        executorService.execute(() -> {
+            List<Image> images = new ArrayList<>();
 
-        Uri imagesUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-        String[] projection = { MediaStore.Images.Media._ID, MediaStore.Images.Media.DATA };
+            Uri imagesUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+            String[] projection = {MediaStore.Images.Media._ID};
+            // Filter by folder path
+            String selection = MediaStore.Images.Media.DATA + " LIKE ?";
+            String[] selectionArgs = new String[]{folderPath + "/%"};
 
-        Cursor cursor = getApplication().getContentResolver().query(
-                imagesUri,
-                projection,
-                null,
-                null,
-                MediaStore.Images.Media.DATE_ADDED + " DESC"
-        );
-
-        if (cursor != null) {
-            int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
-            int dataCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
-
-            while (cursor.moveToNext()) {
-                long id = cursor.getLong(idCol);
-                String path = cursor.getString(dataCol);
-
-                File file = new File(path);
-                if (!file.exists() || file.isDirectory()) continue;
-
-                String currentFolder = file.getParentFile().getAbsolutePath();
-                if (!currentFolder.equals(folderPath)) continue;
-
-                Uri contentUri = Uri.withAppendedPath(imagesUri, String.valueOf(id));
-                images.add(new Image(contentUri));
+            try (Cursor cursor = getApplication().getContentResolver().query(
+                    imagesUri,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    MediaStore.Images.Media.DATE_ADDED + " DESC"
+            )) {
+                if (cursor != null) {
+                    int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+                    while (cursor.moveToNext()) {
+                        long id = cursor.getLong(idCol);
+                        Uri contentUri = Uri.withAppendedPath(imagesUri, String.valueOf(id));
+                        images.add(new Image(contentUri));
+                    }
+                }
             }
-
-            cursor.close();
-        }
-
-        imagesLiveData.postValue(images);
+            imagesLiveData.postValue(images);
+        });
     }
 }
