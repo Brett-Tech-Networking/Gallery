@@ -3,22 +3,25 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
+    android:gravity="center"
     android:padding="4dp">
 
     <ImageView
-        android:id="@+id/filter_image"
+        android:id="@+id/filter_image_preview"
         android:layout_width="80dp"
         android:layout_height="80dp"
         android:scaleType="centerCrop"
-        android:src="@drawable/ic_album_placeholder" />
+        android:src="@drawable/ic_album_placeholder"/>
 
     <TextView
         android:id="@+id/filter_name"
-        android:layout_width="match_parent"
+        android:layout_width="80dp"
         android:layout_height="wrap_content"
         android:gravity="center"
         android:text="Filter"
         android:textColor="@android:color/white"
+        android:maxLines="1"
+        android:ellipsize="end"
         android:textSize="12sp" />
 
 </LinearLayout>

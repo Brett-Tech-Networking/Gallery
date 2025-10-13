@@ -1,23 +1,27 @@
 package com.bretttech.gallery.filters;
 
+import android.graphics.Bitmap;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bretttech.gallery.R;
 import java.util.ArrayList;
 import java.util.List;
-import ja.burhanrashid52.photoeditor.PhotoFilter; // <-- CORRECTED IMPORT
+import ja.burhanrashid52.photoeditor.PhotoFilter;
 
 public class FilterViewAdapter extends RecyclerView.Adapter<FilterViewAdapter.ViewHolder> {
 
     private final FilterListener mFilterListener;
     private final List<PhotoFilter> mPhotoFilters = new ArrayList<>();
+    private final Bitmap sourceBitmap;
 
-    public FilterViewAdapter(FilterListener filterListener) {
+    public FilterViewAdapter(FilterListener filterListener, Bitmap sourceBitmap) {
         mFilterListener = filterListener;
+        this.sourceBitmap = sourceBitmap;
         setupFilters();
     }
 
@@ -33,6 +37,8 @@ public class FilterViewAdapter extends RecyclerView.Adapter<FilterViewAdapter.Vi
         PhotoFilter filter = mPhotoFilters.get(position);
         String filterName = filter.name().replace("_", " ");
         holder.mTxtFilterName.setText(filterName);
+        // We just show the original bitmap as a placeholder thumbnail now
+        holder.mImgFilterPreview.setImageBitmap(sourceBitmap);
     }
 
     @Override
@@ -41,10 +47,12 @@ public class FilterViewAdapter extends RecyclerView.Adapter<FilterViewAdapter.Vi
     }
 
     class ViewHolder extends RecyclerView.ViewHolder {
+        ImageView mImgFilterPreview;
         TextView mTxtFilterName;
 
         ViewHolder(View itemView) {
             super(itemView);
+            mImgFilterPreview = itemView.findViewById(R.id.filter_image_preview);
             mTxtFilterName = itemView.findViewById(R.id.filter_name);
             itemView.setOnClickListener(v -> mFilterListener.onFilterSelected(mPhotoFilters.get(getAdapterPosition())));
         }
@@ -72,8 +80,5 @@ public class FilterViewAdapter extends RecyclerView.Adapter<FilterViewAdapter.Vi
         mPhotoFilters.add(PhotoFilter.VIGNETTE);
         mPhotoFilters.add(PhotoFilter.CROSS_PROCESS);
         mPhotoFilters.add(PhotoFilter.BLACK_WHITE);
-        mPhotoFilters.add(PhotoFilter.FLIP_HORIZONTAL);
-        mPhotoFilters.add(PhotoFilter.FLIP_VERTICAL);
-        mPhotoFilters.add(PhotoFilter.ROTATE);
     }
 }

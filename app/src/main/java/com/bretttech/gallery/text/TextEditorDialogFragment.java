@@ -1,6 +1,8 @@
+// brett-tech-networking/gallery/Gallery-b8f232f66292c1bcf65ca17067d173829c633af8/app/src/main/java/com/bretttech/gallery/text/TextEditorDialogFragment.java
 package com.bretttech.gallery.text;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -15,8 +17,11 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
-
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import com.bretttech.gallery.R;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TextEditorDialogFragment extends DialogFragment {
 
@@ -46,6 +51,15 @@ public class TextEditorDialogFragment extends DialogFragment {
         return show(appCompatActivity, "", ContextCompat.getColor(appCompatActivity, R.color.white));
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (getDialog() != null && getDialog().getWindow() != null) {
+            getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            getDialog().getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+    }
+
     public void setOnTextEditorListener(@NonNull TextEditorListener textEditorListener) {
         mTextEditorListener = textEditorListener;
     }
@@ -61,8 +75,10 @@ public class TextEditorDialogFragment extends DialogFragment {
         super.onViewCreated(view, savedInstanceState);
         mAddTextEditText = view.findViewById(R.id.add_text_edit_text);
         TextView mAddTextDoneTextView = view.findViewById(R.id.add_text_done_tv);
+        RecyclerView colorsRecyclerView = view.findViewById(R.id.colors_recycler_view);
 
-        // Correctly get the InputMethodManager
+        setupColorPicker(colorsRecyclerView);
+
         InputMethodManager inputMethodManager = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
         mAddTextEditText.requestFocus();
         if (inputMethodManager != null) {
@@ -81,9 +97,22 @@ public class TextEditorDialogFragment extends DialogFragment {
         });
 
         if (getArguments() != null) {
-            mAddTextEditText.setText(getArguments().getString(EXTRA_INPUT_TEXT));
             mColorCode = getArguments().getInt(EXTRA_COLOR_CODE);
+            mAddTextEditText.setText(getArguments().getString(EXTRA_INPUT_TEXT));
             mAddTextEditText.setTextColor(mColorCode);
         }
     }
+
+    private void setupColorPicker(RecyclerView recyclerView) {
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
+        ColorPickerAdapter colorPickerAdapter = new ColorPickerAdapter(getContext());
+        colorPickerAdapter.setOnColorPickerClickListener(colorCode -> {
+            mColorCode = colorCode;
+            mAddTextEditText.setTextColor(colorCode);
+        });
+        recyclerView.setAdapter(colorPickerAdapter);
+    }
+
+    // You will need a simple ColorPickerAdapter class for the RecyclerView.
+    // You can create a new Java file for this.
 }
