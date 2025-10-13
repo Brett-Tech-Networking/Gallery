@@ -20,9 +20,12 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
 
     private final List<Album> albums;
     private final OnAlbumClickListener listener;
+    private final List<Album> selectedAlbums = new ArrayList<>();
+
 
     public interface OnAlbumClickListener {
         void onAlbumClick(Album album);
+        void onAlbumLongClick(Album album);
     }
 
     public AlbumsAdapter(List<Album> albums, OnAlbumClickListener listener) {
@@ -41,7 +44,7 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
     @Override
     public void onBindViewHolder(@NonNull AlbumViewHolder holder, int position) {
         Album album = albums.get(position);
-        holder.bind(album, listener);
+        holder.bind(album, listener, selectedAlbums.contains(album));
     }
 
     @Override
@@ -57,39 +60,73 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
         notifyDataSetChanged();
     }
 
+    public void toggleSelection(Album album) {
+        if (selectedAlbums.contains(album)) {
+            selectedAlbums.remove(album);
+        } else {
+            selectedAlbums.add(album);
+        }
+        notifyDataSetChanged();
+    }
+
+    public List<Album> getSelectedAlbums() {
+        return selectedAlbums;
+    }
+
+    public void clearSelection() {
+        selectedAlbums.clear();
+        notifyDataSetChanged();
+    }
+
+
     static class AlbumViewHolder extends RecyclerView.ViewHolder {
         private final ImageView albumCover;
         private final TextView albumName;
         private final TextView albumImageCount;
-        private final ImageView videoIndicator; // NEW
+        private final ImageView videoIndicator;
+        private final View selectionOverlay;
+
 
         public AlbumViewHolder(@NonNull View itemView) {
             super(itemView);
             albumCover = itemView.findViewById(R.id.album_cover);
             albumName = itemView.findViewById(R.id.album_name);
             albumImageCount = itemView.findViewById(R.id.album_image_count);
-            videoIndicator = itemView.findViewById(R.id.album_video_indicator); // NEW
+            videoIndicator = itemView.findViewById(R.id.album_video_indicator);
+            selectionOverlay = itemView.findViewById(R.id.selection_overlay);
         }
 
-        public void bind(final Album album, final OnAlbumClickListener listener) {
+        public void bind(final Album album, final OnAlbumClickListener listener, boolean isSelected) {
             albumName.setText(album.getName());
-            albumImageCount.setText(album.getImageCount() + " Photos");
+            albumImageCount.setText(album.getImageCount() + " Items");
 
+            // Use the coverImageUri directly from the Album object
             Uri coverUri = album.getCoverImageUri();
-            Glide.with(itemView.getContext())
-                    .load(coverUri)
-                    .centerCrop()
-                    .placeholder(R.drawable.ic_album_placeholder)
-                    .into(albumCover);
+            if (coverUri != null) {
+                Glide.with(itemView.getContext())
+                        .load(coverUri)
+                        .centerCrop()
+                        .placeholder(R.drawable.ic_album_placeholder)
+                        .into(albumCover);
+            } else {
+                albumCover.setImageResource(R.drawable.ic_album_placeholder);
+            }
 
-            // NEW: Show video indicator if the album cover is a video
+
             if (album.isCoverVideo()) {
                 videoIndicator.setVisibility(View.VISIBLE);
             } else {
                 videoIndicator.setVisibility(View.GONE);
             }
 
+            selectionOverlay.setVisibility(isSelected ? View.VISIBLE : View.GONE);
+
+
             itemView.setOnClickListener(v -> listener.onAlbumClick(album));
+            itemView.setOnLongClickListener(v -> {
+                listener.onAlbumLongClick(album);
+                return true;
+            });
         }
     }
 }

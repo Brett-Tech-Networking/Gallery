@@ -3,8 +3,12 @@ package com.bretttech.gallery.ui.secure;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
@@ -13,6 +17,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
@@ -25,13 +30,23 @@ import com.bretttech.gallery.auth.BiometricAuthManager;
 import com.bretttech.gallery.databinding.FragmentSecureFolderBinding;
 import com.bretttech.gallery.ui.albums.Album;
 import com.bretttech.gallery.ui.albums.AlbumsAdapter;
+import com.bretttech.gallery.ui.albums.AlbumsViewModel;
+import com.bretttech.gallery.ui.albums.ChangeCoverActivity;
 
-public class SecureFolderFragment extends Fragment {
+import java.io.File;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class SecureFolderFragment extends Fragment implements androidx.appcompat.view.ActionMode.Callback {
 
     private FragmentSecureFolderBinding binding;
     private SecureFolderViewModel secureFolderViewModel;
     private AlbumsAdapter albumsAdapter;
     private NavController navController;
+    private androidx.appcompat.view.ActionMode actionMode;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
 
     private final ActivityResultLauncher<Intent> pinSetupLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -48,6 +63,14 @@ public class SecureFolderFragment extends Fragment {
                     loadContent();
                 } else {
                     navController.popBackStack();
+                }
+            });
+
+    private final ActivityResultLauncher<Intent> changeCoverLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == AppCompatActivity.RESULT_OK && result.getData() != null) {
+                    secureFolderViewModel.loadAlbumsFromSecureFolder();
+                    Toast.makeText(getContext(), "Cover photo changed!", Toast.LENGTH_SHORT).show();
                 }
             });
 
@@ -107,10 +130,41 @@ public class SecureFolderFragment extends Fragment {
     }
 
     private void setupRecyclerView() {
-        albumsAdapter = new AlbumsAdapter(null, this::openAlbum);
+        albumsAdapter = new AlbumsAdapter(null, new AlbumsAdapter.OnAlbumClickListener() {
+            @Override
+            public void onAlbumClick(Album album) {
+                if (actionMode != null) {
+                    toggleSelection(album);
+                } else {
+                    openAlbum(album);
+                }
+            }
+
+            @Override
+            public void onAlbumLongClick(Album album) {
+                toggleSelection(album);
+            }
+        });
         binding.recyclerViewSecureAlbums.setLayoutManager(new GridLayoutManager(getContext(), 2));
         binding.recyclerViewSecureAlbums.setAdapter(albumsAdapter);
     }
+
+    private void toggleSelection(Album album) {
+        albumsAdapter.toggleSelection(album);
+        int selectionCount = albumsAdapter.getSelectedAlbums().size();
+        if (selectionCount > 0) {
+            if (actionMode == null) {
+                actionMode = ((AppCompatActivity) requireActivity()).startSupportActionMode(this);
+            }
+            actionMode.setTitle(selectionCount + " selected");
+            actionMode.invalidate();
+        } else {
+            if (actionMode != null) {
+                actionMode.finish();
+            }
+        }
+    }
+
 
     private void openAlbum(Album album) {
         Bundle bundle = new Bundle();
@@ -122,5 +176,118 @@ public class SecureFolderFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+    }
+
+    @Override
+    public boolean onCreateActionMode(androidx.appcompat.view.ActionMode mode, Menu menu) {
+        mode.getMenuInflater().inflate(R.menu.secure_album_context_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareActionMode(androidx.appcompat.view.ActionMode mode, Menu menu) {
+        menu.findItem(R.id.action_change_cover).setVisible(albumsAdapter.getSelectedAlbums().size() == 1);
+        return true;
+    }
+
+    @Override
+    public boolean onActionItemClicked(androidx.appcompat.view.ActionMode mode, MenuItem item) {
+        List<Album> selectedAlbums = albumsAdapter.getSelectedAlbums();
+        if (selectedAlbums.isEmpty()) return false;
+
+        int itemId = item.getItemId();
+        if (itemId == R.id.action_delete_album) {
+            showDeleteConfirmation(selectedAlbums);
+            mode.finish();
+            return true;
+        } else if (itemId == R.id.action_move_out_of_secure) {
+            moveAlbumsToPublic(selectedAlbums);
+            mode.finish();
+            return true;
+        } else if (itemId == R.id.action_change_cover) {
+            Intent intent = new Intent(getContext(), ChangeCoverActivity.class);
+            intent.putExtra(ChangeCoverActivity.EXTRA_ALBUM_PATH, selectedAlbums.get(0).getFolderPath());
+            changeCoverLauncher.launch(intent);
+            mode.finish();
+            return true;
+        }
+        return false;
+    }
+
+    private void moveAlbumsToPublic(List<Album> albumsToMove) {
+        executor.execute(() -> {
+            File publicPicturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+            if (!publicPicturesDir.exists()) publicPicturesDir.mkdirs();
+
+            for (Album album : albumsToMove) {
+                File sourceDir = new File(album.getFolderPath());
+                File destDir = new File(publicPicturesDir, album.getName());
+                if (!destDir.exists()) destDir.mkdirs();
+
+                File[] filesToMove = sourceDir.listFiles();
+                if (filesToMove != null) {
+                    for (File file : filesToMove) {
+                        File newFile = new File(destDir, file.getName());
+                        file.renameTo(newFile);
+                        AlbumsViewModel.scanFile(getContext(), Uri.fromFile(newFile));
+                    }
+                }
+                deleteDirectory(sourceDir);
+            }
+
+            if (isAdded()) {
+                requireActivity().runOnUiThread(() -> {
+                    Toast.makeText(getContext(), "Moved " + albumsToMove.size() + " album(s) out of secure folder", Toast.LENGTH_SHORT).show();
+                    secureFolderViewModel.loadAlbumsFromSecureFolder();
+                });
+            }
+        });
+    }
+
+    private void showDeleteConfirmation(List<Album> albumsToDelete) {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Delete " + albumsToDelete.size() + " Secure Album(s)?")
+                .setMessage("This will permanently delete the album and all photos inside. This action cannot be undone.")
+                .setPositiveButton("Delete Everything", (dialog, which) -> {
+                    deleteAlbums(albumsToDelete);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void deleteAlbums(List<Album> albumsToDelete) {
+        executor.execute(() -> {
+            for (Album album : albumsToDelete) {
+                deleteDirectory(new File(album.getFolderPath()));
+            }
+            if (isAdded()) {
+                requireActivity().runOnUiThread(() -> {
+                    Toast.makeText(getContext(), "Deleted " + albumsToDelete.size() + " album(s)", Toast.LENGTH_SHORT).show();
+                    secureFolderViewModel.loadAlbumsFromSecureFolder();
+                });
+            }
+        });
+    }
+
+    private boolean deleteDirectory(File path) {
+        if (path.exists()) {
+            File[] files = path.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        deleteDirectory(file);
+                    } else {
+                        file.delete();
+                    }
+                }
+            }
+        }
+        return path.delete();
+    }
+
+    @Override
+    public void onDestroyActionMode(androidx.appcompat.view.ActionMode mode) {
+        actionMode = null;
+        albumsAdapter.clearSelection();
     }
 }

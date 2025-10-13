@@ -72,6 +72,12 @@
             android:exported="false"
             android:theme="@style/Theme.Gallery.NoActionBar" />
 
+        <activity
+            android:name=".ui.albums.ChangeCoverActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Gallery" />
+
+
     </application>
 
 </manifest>
