@@ -53,5 +53,7 @@ dependencies {
     implementation(libs.glide)
     // Add pinch zoom in gallery
     implementation(libs.photoview)
+    implementation(libs.ucrop)
+    implementation(libs.photoeditor)
 }
 
