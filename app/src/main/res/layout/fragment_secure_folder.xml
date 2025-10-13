@@ -7,7 +7,7 @@
     tools:context=".ui.secure.SecureFolderFragment">
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_view_secure_folder"
+        android:id="@+id/recycler_view_secure_albums"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:clipToPadding="false"

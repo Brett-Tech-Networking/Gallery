@@ -26,7 +26,9 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.bretttech.gallery.ui.pictures.Image;
+import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -42,6 +44,7 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
     private List<Image> images;
     private List<Uri> imageUris;
     private ViewGroup bottomActionBar;
+    private boolean isSecureMode = false;
 
     private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher =
             registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
@@ -57,6 +60,8 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_photo_view);
+
+        isSecureMode = getIntent().getBooleanExtra("isSecure", false);
 
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
@@ -83,12 +88,26 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
 
         setupButtonListeners();
         updateSystemUiVisibility(false);
+        setupFragmentResultListener();
     }
 
     private void setupButtonListeners() {
         findViewById(R.id.button_share).setOnClickListener(v -> shareCurrentImage());
         findViewById(R.id.button_edit).setOnClickListener(v -> editCurrentImage());
     }
+
+    private void setupFragmentResultListener() {
+        getSupportFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this, (requestKey, bundle) -> {
+            boolean success = bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS);
+            if (success) {
+                Toast.makeText(this, "Photo moved successfully", Toast.LENGTH_SHORT).show();
+                removeCurrentImageFromPager();
+            } else {
+                Toast.makeText(this, "Failed to move photo", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
 
     private Uri getCurrentImageUri() {
         if (imageUris == null || imageUris.isEmpty()) return null;
@@ -105,6 +124,12 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
             Toast.makeText(this, "Cannot share image", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        if (isSecureMode) {
+            Toast.makeText(this, "Sharing from secure folder is not allowed.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         Intent shareIntent = new Intent(Intent.ACTION_SEND);
         shareIntent.setType("image/*");
         shareIntent.putExtra(Intent.EXTRA_STREAM, imageUri);
@@ -116,6 +141,10 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         Uri imageUri = getCurrentImageUri();
         if (imageUri == null) {
             Toast.makeText(this, "Cannot edit image", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (isSecureMode) {
+            Toast.makeText(this, "Editing from secure folder is not yet supported.", Toast.LENGTH_SHORT).show();
             return;
         }
         Intent intent = new Intent(this, ImageEditActivity.class);
@@ -153,21 +182,54 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.photo_view_menu, menu);
+        MenuItem moveItem = menu.findItem(R.id.action_move);
+        if (isSecureMode) {
+            moveItem.setTitle("Move to another secure album");
+        }
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
+        int itemId = item.getItemId();
+        if (itemId == android.R.id.home) {
             finish();
             return true;
-        }
-        if (item.getItemId() == R.id.action_delete) {
-            trashCurrentImage();
+        } else if (itemId == R.id.action_delete) {
+            if (isSecureMode) {
+                deleteSecureImage();
+            } else {
+                trashCurrentImage();
+            }
+            return true;
+        } else if (itemId == R.id.action_move) {
+            moveCurrentImage();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
+
+    private void moveCurrentImage() {
+        Uri imageUri = getCurrentImageUri();
+        if (imageUri != null) {
+            List<Uri> uris = new ArrayList<>();
+            uris.add(imageUri);
+            // If we are in secure mode, we pass 'true' to show the secure album dialog
+            MoveToAlbumDialogFragment.newInstance(uris, isSecureMode).show(getSupportFragmentManager(), MoveToAlbumDialogFragment.TAG);
+        } else {
+            Toast.makeText(this, "Could not find image to move", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void deleteSecureImage() {
+        Uri imageUri = getCurrentImageUri();
+        if (imageUri != null) {
+            new File(imageUri.getPath()).delete();
+            Toast.makeText(this, "Photo deleted", Toast.LENGTH_SHORT).show();
+            removeCurrentImageFromPager();
+        }
+    }
+
 
     private void trashCurrentImage() {
         Uri imageUri = getCurrentImageUri();
@@ -195,6 +257,11 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         if (currentPosition < imageUris.size()) {
             imageUris.remove(currentPosition);
             adapter.notifyItemRemoved(currentPosition);
+
+            if (images != null && currentPosition < images.size()) {
+                images.remove(currentPosition);
+            }
+
             if (imageUris.isEmpty()) {
                 finish();
             }

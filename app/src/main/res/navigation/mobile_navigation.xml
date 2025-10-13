@@ -52,5 +52,15 @@
         android:id="@+id/secureFolderFragment"
         android:name="com.bretttech.gallery.ui.secure.SecureFolderFragment"
         android:label="@string/title_secure_folder"
-        tools:layout="@layout/fragment_secure_folder" />
+        tools:layout="@layout/fragment_secure_folder" >
+        <action
+            android:id="@+id/action_secureFolderFragment_to_secureAlbumDetailFragment"
+            app:destination="@id/secureAlbumDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/secureAlbumDetailFragment"
+        android:name="com.bretttech.gallery.ui.secure.SecureAlbumDetailFragment"
+        android:label="Secure Album"
+        tools:layout="@layout/fragment_album_detail" />
 </navigation>

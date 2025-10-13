@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+import com.bretttech.gallery.ui.albums.Album;
 import com.bretttech.gallery.ui.pictures.Image;
 import java.io.File;
 import java.util.ArrayList;
@@ -15,35 +16,35 @@ import java.util.concurrent.Executors;
 
 public class SecureFolderViewModel extends AndroidViewModel {
 
-    private final MutableLiveData<List<Image>> imagesLiveData = new MutableLiveData<>();
+    private final MutableLiveData<List<Album>> albumsLiveData = new MutableLiveData<>();
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     public SecureFolderViewModel(@NonNull Application application) {
         super(application);
     }
 
-    public LiveData<List<Image>> getImages() {
-        return imagesLiveData;
+    public LiveData<List<Album>> getAlbums() {
+        return albumsLiveData;
     }
 
-    public void loadImagesFromSecureFolder() {
+    public void loadAlbumsFromSecureFolder() {
         executorService.execute(() -> {
-            List<Image> images = new ArrayList<>();
+            List<Album> albums = new ArrayList<>();
             File secureFolder = new File(getApplication().getFilesDir(), "secure");
             if (secureFolder.exists() && secureFolder.isDirectory()) {
-                File[] files = secureFolder.listFiles();
-                if (files != null) {
-                    for (File file : files) {
-                        // This is a simplified version. A real implementation would need to
-                        // distinguish between images and videos and get proper metadata.
-                        // For now, we'll just use the file URI.
-                        Uri uri = Uri.fromFile(file);
-                        // We need to determine the media type. For this example, we'll assume image.
-                        images.add(new Image(uri, Image.MEDIA_TYPE_IMAGE));
+                File[] albumDirs = secureFolder.listFiles(File::isDirectory);
+                if (albumDirs != null) {
+                    for (File albumDir : albumDirs) {
+                        File[] images = albumDir.listFiles();
+                        if (images != null && images.length > 0) {
+                            // Use the first image as the cover
+                            Uri coverUri = Uri.fromFile(images[0]);
+                            albums.add(new Album(albumDir.getName(), coverUri, images.length, albumDir.getAbsolutePath(), Image.MEDIA_TYPE_IMAGE, albumDir.lastModified()));
+                        }
                     }
                 }
             }
-            imagesLiveData.postValue(images);
+            albumsLiveData.postValue(albums);
         });
     }
 }

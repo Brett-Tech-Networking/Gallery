@@ -3,7 +3,13 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/action_move"
+        android:id="@+id/action_move_out"
+        android:icon="@drawable/ic_move_out"
+        android:title="Move Out"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_move_to_another_secure_album"
         android:icon="@drawable/ic_move"
         android:title="Move"
         app:showAsAction="ifRoom" />
@@ -13,4 +19,5 @@
         android:icon="@drawable/ic_delete"
         android:title="Delete"
         app:showAsAction="ifRoom" />
+
 </menu>

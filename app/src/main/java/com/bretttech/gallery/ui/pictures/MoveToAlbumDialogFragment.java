@@ -12,6 +12,9 @@ import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -45,7 +48,6 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
     private static final String ARG_URIS = "uris_to_move";
     private static final String ARG_IS_SECURE_MOVE = "is_secure_move";
 
-    private AlbumsViewModel albumsViewModel;
     private List<Uri> urisToMove;
     private boolean isSecureMove = false;
 
@@ -77,51 +79,93 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        if (isSecureMove) {
-            moveToSecureFolder();
-            return;
-        }
-
+        TextView title = view.findViewById(R.id.dialog_title);
         RecyclerView recyclerView = view.findViewById(R.id.albums_recycler_view);
-        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        AlbumsAdapter albumsAdapter = new AlbumsAdapter(new ArrayList<>(), this::onAlbumSelected);
-        recyclerView.setAdapter(albumsAdapter);
+        EditText newAlbumEditText = view.findViewById(R.id.new_album_name);
+        Button createAlbumButton = view.findViewById(R.id.create_album_button);
 
-        albumsViewModel = new ViewModelProvider(this).get(AlbumsViewModel.class);
-        albumsViewModel.getAlbums().observe(getViewLifecycleOwner(), albumsAdapter::setAlbums);
-        albumsViewModel.loadAlbums();
+        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
+
+        if (isSecureMove) {
+            title.setText("Move to Secure Album");
+            newAlbumEditText.setVisibility(View.VISIBLE);
+            createAlbumButton.setVisibility(View.VISIBLE);
+
+            File secureRoot = new File(requireContext().getFilesDir(), "secure");
+            List<Album> secureAlbums = getAlbumsFromDirectory(secureRoot);
+
+            if (!secureAlbums.isEmpty()) {
+                recyclerView.setVisibility(View.VISIBLE);
+                AlbumsAdapter adapter = new AlbumsAdapter(secureAlbums, this::onAlbumSelected);
+                recyclerView.setAdapter(adapter);
+            }
+
+            createAlbumButton.setOnClickListener(v -> {
+                String albumName = newAlbumEditText.getText().toString().trim();
+                if (albumName.isEmpty()) {
+                    albumName = "Moved"; // Default album name
+                }
+                File newAlbumDir = new File(secureRoot, albumName);
+                if (!newAlbumDir.exists()) {
+                    newAlbumDir.mkdirs();
+                }
+                moveUrisTo(newAlbumDir.getAbsolutePath());
+                dismiss();
+            });
+
+        } else {
+            // Moving out of secure or between public albums
+            title.setText("Select Album");
+            recyclerView.setVisibility(View.VISIBLE);
+            AlbumsViewModel albumsViewModel = new ViewModelProvider(this).get(AlbumsViewModel.class);
+            albumsViewModel.getAlbums().observe(getViewLifecycleOwner(), albums -> {
+                AlbumsAdapter adapter = new AlbumsAdapter(albums, this::onAlbumSelected);
+                recyclerView.setAdapter(adapter);
+            });
+            albumsViewModel.loadAlbums();
+        }
     }
+
+    private List<Album> getAlbumsFromDirectory(File rootDir) {
+        List<Album> albums = new ArrayList<>();
+        if (rootDir.exists() && rootDir.isDirectory()) {
+            File[] albumDirs = rootDir.listFiles(File::isDirectory);
+            if (albumDirs != null) {
+                for (File dir : albumDirs) {
+                    File[] files = dir.listFiles();
+                    int count = files != null ? files.length : 0;
+                    if (count > 0) {
+                        Uri coverUri = Uri.fromFile(files[0]);
+                        albums.add(new Album(dir.getName(), coverUri, count, dir.getAbsolutePath(), Image.MEDIA_TYPE_IMAGE, dir.lastModified()));
+                    }
+                }
+            }
+        }
+        return albums;
+    }
+
 
     private void onAlbumSelected(Album album) {
         moveUrisTo(album.getFolderPath());
         dismiss();
     }
 
-    private void moveToSecureFolder() {
-        File secureDir = new File(requireContext().getFilesDir(), "secure");
-        if (!secureDir.exists()) {
-            secureDir.mkdirs();
-        }
-        moveUrisTo(secureDir.getAbsolutePath());
-        dismiss();
-    }
-
     private void moveUrisTo(String destinationPath) {
         if (urisToMove == null || urisToMove.isEmpty()) {
-            Toast.makeText(getContext(), "No items to move.", Toast.LENGTH_SHORT).show();
+            if (isAdded()) {
+                Toast.makeText(getContext(), "No items to move.", Toast.LENGTH_SHORT).show();
+            }
             return;
         }
 
         new Thread(() -> {
             boolean allFilesMoved = true;
             for (Uri uri : urisToMove) {
-                boolean success = false;
+                boolean success;
                 String scheme = uri.getScheme();
                 if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
-                    // Moving FROM MediaStore (public) TO a file path (private/secure)
                     success = moveFromMediaStoreToPath(uri, destinationPath);
-                } else if (ContentResolver.SCHEME_FILE.equals(scheme)) {
-                    // Moving FROM a file path (private/secure) TO MediaStore (public)
+                } else {
                     success = moveFromFileToMediaStore(new File(uri.getPath()), destinationPath) != null;
                 }
 
@@ -160,7 +204,6 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
             while ((len = in.read(buf)) > 0) {
                 out.write(buf, 0, len);
             }
-            // Now that copy is successful, delete the original
             context.getContentResolver().delete(sourceUri, null, null);
             return true;
         } catch (Exception e) {
@@ -175,12 +218,11 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
         ContentResolver resolver = context.getContentResolver();
         ContentValues values = new ContentValues();
         values.put(MediaStore.Images.Media.DISPLAY_NAME, sourceFile.getName());
-        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg"); // This can be improved to detect MIME type
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Correctly form the relative path
             String relativePath = getRelativePathFromAbsolute(destinationAlbumPath);
-            if (relativePath == null) return null; // Could not determine relative path
+            if (relativePath == null) return null;
             values.put(MediaStore.Images.Media.RELATIVE_PATH, relativePath);
             values.put(MediaStore.Images.Media.IS_PENDING, 1);
         } else {
@@ -201,7 +243,7 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
                     out.write(buf, 0, len);
                 }
             } catch (IOException e) {
-                resolver.delete(uri, null, null); // Clean up failed insert
+                resolver.delete(uri, null, null);
                 return null;
             }
 
@@ -210,7 +252,6 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
                 values.put(MediaStore.Images.Media.IS_PENDING, 0);
                 resolver.update(uri, values, null, null);
             }
-            // Now that copy is successful, delete the original
             sourceFile.delete();
             return uri;
         }
@@ -233,14 +274,14 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
                 return relativePath;
             }
         }
-        return null; // Fallback
+        return new File(absolutePath).getName();
     }
 
-
     private String getFileName(Uri uri) {
+        if (getContext() == null) return null;
         String result = null;
         if (uri.getScheme().equals("content")) {
-            try (Cursor cursor = requireContext().getContentResolver().query(uri, null, null, null, null)) {
+            try (Cursor cursor = getContext().getContentResolver().query(uri, null, null, null, null)) {
                 if (cursor != null && cursor.moveToFirst()) {
                     int index = cursor.getColumnIndex(MediaStore.Images.Media.DISPLAY_NAME);
                     if (index != -1) {
