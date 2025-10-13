@@ -134,8 +134,6 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
             adjustedBitmap = originalBitmap.copy(originalBitmap.getConfig(), true);
 
             // FINAL FIX: This is the correct way to handle the image display.
-            // We set the bitmap and ensure the scale type is correct.
-            // Do NOT manually set LayoutParams, as that was the cause of the crash.
             mPhotoEditorView.getSource().setImageBitmap(originalBitmap);
             mPhotoEditorView.getSource().setScaleType(ImageView.ScaleType.FIT_CENTER);
 
@@ -244,13 +242,36 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         if (originalBitmap == null) return;
         adjustedBitmap = originalBitmap.copy(originalBitmap.getConfig(), true);
         Paint paint = new Paint();
-        ColorMatrix cm = new ColorMatrix();
-        cm.set(new float[]{1, 0, 0, 0, brightnessValue, 0, 1, 0, 0, brightnessValue, 0, 0, 1, 0, brightnessValue, 0, 0, 0, 1, 0});
+
+        ColorMatrix finalMatrix = new ColorMatrix();
+
+        // Saturation
+        ColorMatrix saturationMatrix = new ColorMatrix();
+        saturationMatrix.setSaturation(saturationValue);
+        finalMatrix.postConcat(saturationMatrix);
+
+        // Contrast
+        ColorMatrix contrastMatrix = new ColorMatrix();
         float t = (1.0f - contrastValue) / 2.0f * 255.0f;
-        cm.postConcat(new ColorMatrix(new float[]{contrastValue, 0, 0, 0, t, 0, contrastValue, 0, 0, t, 0, 0, contrastValue, 0, t, 0, 0, 0, 1, 0}));
-        cm.postConcat(new ColorMatrix());
-        cm.setSaturation(saturationValue);
-        paint.setColorFilter(new ColorMatrixColorFilter(cm));
+        contrastMatrix.set(new float[]{
+                contrastValue, 0, 0, 0, t,
+                0, contrastValue, 0, 0, t,
+                0, 0, contrastValue, 0, t,
+                0, 0, 0, 1, 0
+        });
+        finalMatrix.postConcat(contrastMatrix);
+
+        // Brightness
+        ColorMatrix brightnessMatrix = new ColorMatrix();
+        brightnessMatrix.set(new float[]{
+                1, 0, 0, 0, brightnessValue,
+                0, 1, 0, 0, brightnessValue,
+                0, 0, 1, 0, brightnessValue,
+                0, 0, 0, 1, 0
+        });
+        finalMatrix.postConcat(brightnessMatrix);
+
+        paint.setColorFilter(new ColorMatrixColorFilter(finalMatrix));
         new Canvas(adjustedBitmap).drawBitmap(originalBitmap, 0, 0, paint);
         mPhotoEditorView.getSource().setImageBitmap(adjustedBitmap);
     }
@@ -306,7 +327,6 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     }
 
     @Override public void onFilterSelected(PhotoFilter photoFilter) {
-        // When a library filter is selected, we must commit our manual adjustments first
         if (adjustedBitmap != null) {
             originalBitmap = adjustedBitmap;
             brightnessValue = 0f;
