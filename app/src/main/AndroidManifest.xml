@@ -6,13 +6,16 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
-
-
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:allowBackup="true"
@@ -46,6 +49,16 @@
             android:exported="false"
             android:theme="@style/Theme.Gallery"
             android:configChanges="orientation|screenSize|screenLayout" />
-    </application>
+
+        <activity
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+
+        <activity
+            android:name=".ImageEditActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Gallery.NoActionBar" /> </application>
 
 </manifest>
