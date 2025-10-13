@@ -61,12 +61,14 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
         private final ImageView albumCover;
         private final TextView albumName;
         private final TextView albumImageCount;
+        private final ImageView videoIndicator; // NEW
 
         public AlbumViewHolder(@NonNull View itemView) {
             super(itemView);
             albumCover = itemView.findViewById(R.id.album_cover);
             albumName = itemView.findViewById(R.id.album_name);
             albumImageCount = itemView.findViewById(R.id.album_image_count);
+            videoIndicator = itemView.findViewById(R.id.album_video_indicator); // NEW
         }
 
         public void bind(final Album album, final OnAlbumClickListener listener) {
@@ -79,6 +81,13 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
                     .centerCrop()
                     .placeholder(R.drawable.ic_album_placeholder)
                     .into(albumCover);
+
+            // NEW: Show video indicator if the album cover is a video
+            if (album.isCoverVideo()) {
+                videoIndicator.setVisibility(View.VISIBLE);
+            } else {
+                videoIndicator.setVisibility(View.GONE);
+            }
 
             itemView.setOnClickListener(v -> listener.onAlbumClick(album));
         }

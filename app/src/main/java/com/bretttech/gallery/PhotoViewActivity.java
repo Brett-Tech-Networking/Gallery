@@ -15,7 +15,11 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.bretttech.gallery.ui.pictures.Image;
@@ -25,7 +29,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class PhotoViewActivity extends AppCompatActivity {
+public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAdapter.PhotoTapListener {
 
     public static final String EXTRA_IMAGE_POSITION = "extra_image_position";
 
@@ -33,6 +37,7 @@ public class PhotoViewActivity extends AppCompatActivity {
     private List<Uri> imageUris;
     private ViewPager2 viewPager;
     private PhotoPagerAdapter adapter;
+    private boolean isUIHidden = false;
 
     private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher =
             registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
@@ -57,21 +62,62 @@ public class PhotoViewActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_photo_view);
 
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
         viewPager = findViewById(R.id.view_pager);
 
         images = ImageDataHolder.getInstance().getImageList();
         int currentPosition = getIntent().getIntExtra(EXTRA_IMAGE_POSITION, 0);
 
         if (images != null && !images.isEmpty()) {
-            // Create a mutable list for modifications
             imageUris = new ArrayList<>(images.stream().map(Image::getUri).collect(Collectors.toList()));
-            adapter = new PhotoPagerAdapter(this, imageUris);
+            adapter = new PhotoPagerAdapter(this, imageUris, this);
             viewPager.setAdapter(adapter);
             viewPager.setCurrentItem(currentPosition, false);
         } else {
             imageUris = new ArrayList<>();
         }
+
+        // NEW: Get action bar and enable the Up button
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+        }
+
+        updateSystemUiVisibility(false);
     }
+
+    @Override
+    public void onPhotoTapped(Uri photoUri) {
+        toggleSystemUiVisibility();
+    }
+
+    private void toggleSystemUiVisibility() {
+        updateSystemUiVisibility(!isUIHidden);
+    }
+
+    private void updateSystemUiVisibility(boolean hide) {
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        ActionBar actionBar = getSupportActionBar();
+
+        if (controller == null) return;
+
+        if (hide) {
+            controller.hide(WindowInsetsCompat.Type.systemBars());
+            controller.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            if (actionBar != null) {
+                actionBar.hide();
+            }
+            isUIHidden = true;
+        } else {
+            controller.show(WindowInsetsCompat.Type.systemBars());
+            if (actionBar != null) {
+                actionBar.show();
+            }
+            isUIHidden = false;
+        }
+    }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -81,6 +127,12 @@ public class PhotoViewActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        // NEW: Handle home/up button press
+        if (item.getItemId() == android.R.id.home) {
+            finish(); // Close the activity and return to the previous screen
+            return true;
+        }
+
         if (item.getItemId() == R.id.action_delete) {
             trashCurrentImage();
             return true;
@@ -104,8 +156,6 @@ public class PhotoViewActivity extends AppCompatActivity {
                 IntentSenderRequest request = new IntentSenderRequest.Builder(intentSender).build();
                 trashResultLauncher.launch(request);
             } else {
-                // For older versions, this will permanently delete.
-                // A custom trash implementation would be needed for a true trash feature.
                 contentResolver.delete(imageUri, null, null);
                 Toast.makeText(this, "Photo deleted", Toast.LENGTH_SHORT).show();
                 imageUris.remove(currentPosition);

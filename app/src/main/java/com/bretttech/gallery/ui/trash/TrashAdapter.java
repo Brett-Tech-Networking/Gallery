@@ -52,8 +52,16 @@ public class TrashAdapter extends RecyclerView.Adapter<TrashAdapter.TrashViewHol
 
         Glide.with(holder.imageView.getContext())
                 .load(uri)
+                // Glide automatically handles video thumbnails if the URI is for a video
                 .centerCrop()
                 .into(holder.imageView);
+
+        // NEW: Show video indicator if it's a video
+        if (image.isVideo()) {
+            holder.videoIndicator.setVisibility(View.VISIBLE);
+        } else {
+            holder.videoIndicator.setVisibility(View.GONE);
+        }
 
         // NEW: Selection state indicator
         if (selectedImages.contains(image)) {
@@ -109,11 +117,13 @@ public class TrashAdapter extends RecyclerView.Adapter<TrashAdapter.TrashViewHol
     static class TrashViewHolder extends RecyclerView.ViewHolder {
         ImageView imageView;
         View selectionOverlay; // NEW: View for selection indicator
+        ImageView videoIndicator; // NEW
 
         public TrashViewHolder(@NonNull View itemView) {
             super(itemView);
             imageView = itemView.findViewById(R.id.image_view);
             selectionOverlay = itemView.findViewById(R.id.selection_overlay); // NEW: Find the overlay view
+            videoIndicator = itemView.findViewById(R.id.video_indicator); // NEW
         }
     }
 }

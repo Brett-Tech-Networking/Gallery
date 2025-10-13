@@ -38,6 +38,12 @@
             android:name=".PhotoViewActivity"
             android:exported="false"
             android:theme="@style/Theme.Gallery" />
+
+        <activity
+            android:name=".VideoPlayerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Gallery"
+            android:configChanges="orientation|screenSize|screenLayout" />
     </application>
 
 </manifest>

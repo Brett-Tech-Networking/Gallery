@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bretttech.gallery.ImageDataHolder;
 import com.bretttech.gallery.PhotoViewActivity;
+import com.bretttech.gallery.VideoPlayerActivity; // NEW IMPORT
 import com.bretttech.gallery.databinding.FragmentPicturesBinding;
 
 import java.util.ArrayList;
@@ -65,8 +66,14 @@ public class PicturesFragment extends Fragment {
         RecyclerView recyclerView = binding.recyclerViewPictures;
         recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3));
 
+        // UPDATED: Check media type to launch appropriate activity
         picturesAdapter = new PicturesAdapter(image -> {
-            if (images != null && !images.isEmpty()) {
+            if (image.isVideo()) {
+                Intent intent = new Intent(getContext(), VideoPlayerActivity.class);
+                intent.putExtra(VideoPlayerActivity.EXTRA_VIDEO_URI, image.getUri());
+                startActivity(intent);
+            } else if (images != null && !images.isEmpty()) {
+                // Original logic for images
                 ImageDataHolder.getInstance().setImageList(images);
                 Intent intent = new Intent(getContext(), PhotoViewActivity.class);
                 intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_POSITION, images.indexOf(image));

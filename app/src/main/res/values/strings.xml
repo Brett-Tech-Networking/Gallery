@@ -6,4 +6,5 @@
     <string name="title_trash">Trash Bin</string>
     <string name="action_restore">Restore</string>
     <string name="action_delete_forever">Delete Forever</string>
+    <string name="video_indicator_desc">Video thumbnail indicator</string>
 </resources>

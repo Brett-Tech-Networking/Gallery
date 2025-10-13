@@ -16,4 +16,16 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <ImageView
+        android:id="@+id/video_indicator"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@drawable/ic_play_circle"
+        android:contentDescription="@string/video_indicator_desc"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="@id/image_view"
+        app:layout_constraintBottom_toBottomOf="@id/image_view"
+        app:layout_constraintStart_toStartOf="@id/image_view"
+        app:layout_constraintEnd_toEndOf="@id/image_view"
+        app:tint="@color/white" />
 </androidx.constraintlayout.widget.ConstraintLayout>

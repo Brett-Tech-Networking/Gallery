@@ -43,8 +43,16 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
 
         Glide.with(holder.imageView.getContext())
                 .load(uri)
+                // Glide automatically handles video thumbnails if the URI is for a video
                 .centerCrop()
                 .into(holder.imageView);
+
+        // NEW: Show video indicator if it's a video
+        if (image.isVideo()) {
+            holder.videoIndicator.setVisibility(View.VISIBLE);
+        } else {
+            holder.videoIndicator.setVisibility(View.GONE);
+        }
 
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
@@ -65,10 +73,12 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
 
     static class PictureViewHolder extends RecyclerView.ViewHolder {
         ImageView imageView;
+        ImageView videoIndicator; // NEW
 
         PictureViewHolder(ItemPictureBinding binding) {
             super(binding.getRoot());
             imageView = binding.imageView;
+            videoIndicator = binding.getRoot().findViewById(com.bretttech.gallery.R.id.video_indicator); // NEW
         }
     }
 }
