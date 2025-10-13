@@ -9,6 +9,7 @@ import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bretttech.gallery.R;
 import com.bretttech.gallery.databinding.ItemPictureBinding;
 import com.bumptech.glide.Glide;
 
@@ -18,15 +19,21 @@ import java.util.List;
 public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.PictureViewHolder> {
 
     private List<Image> images = new ArrayList<>();
-    private final OnPictureClickListener listener;
+    private final List<Image> selectedImages = new ArrayList<>(); // To track selected items
+    private final OnPictureClickListener clickListener;
+    private final OnPictureLongClickListener longClickListener;
 
-    // Interface for click handling
     public interface OnPictureClickListener {
         void onPictureClick(Image image);
     }
 
-    public PicturesAdapter(OnPictureClickListener listener) {
-        this.listener = listener;
+    public interface OnPictureLongClickListener {
+        void onPictureLongClick(Image image);
+    }
+
+    public PicturesAdapter(OnPictureClickListener clickListener, OnPictureLongClickListener longClickListener) {
+        this.clickListener = clickListener;
+        this.longClickListener = longClickListener;
     }
 
     @NonNull
@@ -43,21 +50,23 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
 
         Glide.with(holder.imageView.getContext())
                 .load(uri)
-                // Glide automatically handles video thumbnails if the URI is for a video
                 .centerCrop()
                 .into(holder.imageView);
 
-        // NEW: Show video indicator if it's a video
-        if (image.isVideo()) {
-            holder.videoIndicator.setVisibility(View.VISIBLE);
-        } else {
-            holder.videoIndicator.setVisibility(View.GONE);
-        }
+        holder.videoIndicator.setVisibility(image.isVideo() ? View.VISIBLE : View.GONE);
+        holder.selectionOverlay.setVisibility(selectedImages.contains(image) ? View.VISIBLE : View.GONE);
 
         holder.itemView.setOnClickListener(v -> {
-            if (listener != null) {
-                listener.onPictureClick(image);
+            if (clickListener != null) {
+                clickListener.onPictureClick(image);
             }
+        });
+
+        holder.itemView.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onPictureLongClick(image);
+            }
+            return true;
         });
     }
 
@@ -67,18 +76,43 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
     }
 
     public void setImages(List<Image> images) {
-        this.images = images;
+        this.images.clear();
+        if (images != null) {
+            this.images.addAll(images);
+        }
         notifyDataSetChanged();
+    }
+
+    // --- Selection Methods ---
+    public void toggleSelection(Image image) {
+        if (selectedImages.contains(image)) {
+            selectedImages.remove(image);
+        } else {
+            selectedImages.add(image);
+        }
+        notifyDataSetChanged();
+    }
+
+    public void clearSelection() {
+        selectedImages.clear();
+        notifyDataSetChanged();
+    }
+
+    public List<Image> getSelectedImages() {
+        return new ArrayList<>(selectedImages);
     }
 
     static class PictureViewHolder extends RecyclerView.ViewHolder {
         ImageView imageView;
-        ImageView videoIndicator; // NEW
+        ImageView videoIndicator;
+        View selectionOverlay;
 
         PictureViewHolder(ItemPictureBinding binding) {
             super(binding.getRoot());
             imageView = binding.imageView;
-            videoIndicator = binding.getRoot().findViewById(com.bretttech.gallery.R.id.video_indicator); // NEW
+            videoIndicator = binding.videoIndicator;
+            // Ensure you have a view with this ID in item_picture.xml
+            selectionOverlay = binding.selectionOverlay;
         }
     }
 }

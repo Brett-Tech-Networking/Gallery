@@ -15,4 +15,10 @@
     <string name="sort_date_asc">Last Updated (Oldest)</string>
     <string name="sort_count_desc">Most Pictures</string>
     <string name="sort_count_asc">Least Pictures</string>
+
+    <string name="action_move">Move</string>
+    <string name="action_wallpaper">Set Wallpaper</string>
+    <string name="wallpaper_error">Cannot set video as wallpaper.</string>
+    <string name="delete_success">Moved %d items to trash</string>
+    <string name="delete_fail">Failed to move items to trash</string>
 </resources>

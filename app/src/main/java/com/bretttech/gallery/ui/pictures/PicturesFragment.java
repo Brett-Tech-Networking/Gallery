@@ -3,9 +3,12 @@ package com.bretttech.gallery.ui.pictures;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
@@ -13,26 +16,31 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.bretttech.gallery.ImageDataHolder;
 import com.bretttech.gallery.PhotoViewActivity;
-import com.bretttech.gallery.VideoPlayerActivity; // NEW IMPORT
+import com.bretttech.gallery.R;
+import com.bretttech.gallery.VideoPlayerActivity;
 import com.bretttech.gallery.databinding.FragmentPicturesBinding;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
-public class PicturesFragment extends Fragment {
+// CORRECTED: This fragment now implements ActionMode.Callback for multi-select functionality.
+public class PicturesFragment extends Fragment implements androidx.appcompat.view.ActionMode.Callback {
 
     private FragmentPicturesBinding binding;
     private PicturesViewModel picturesViewModel;
     private PicturesAdapter picturesAdapter;
     private List<Image> images = new ArrayList<>();
+    private androidx.appcompat.view.ActionMode actionMode;
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -44,11 +52,27 @@ public class PicturesFragment extends Fragment {
             });
 
     @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // This is the listener that replaces the old OnMoveCompleteListener.
+        // It listens for a result from the dialog.
+        getParentFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this, (requestKey, bundle) -> {
+            boolean success = bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS);
+            if (success) {
+                // If the move was successful, reload the pictures.
+                if (picturesViewModel != null) {
+                    picturesViewModel.loadImages();
+                }
+            }
+        });
+    }
+
+    @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
         picturesViewModel = new ViewModelProvider(this).get(PicturesViewModel.class);
         binding = FragmentPicturesBinding.inflate(inflater, container, false);
-        View root = binding.getRoot();
 
         setupRecyclerView();
 
@@ -59,29 +83,92 @@ public class PicturesFragment extends Fragment {
 
         requestStoragePermission();
 
-        return root;
+        return binding.getRoot();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (actionMode == null) {
+            picturesViewModel.loadImages();
+        }
     }
 
     private void setupRecyclerView() {
-        RecyclerView recyclerView = binding.recyclerViewPictures;
-        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3));
+        picturesAdapter = new PicturesAdapter(
+                // Single-click listener
+                image -> {
+                    if (actionMode != null) {
+                        toggleSelection(image);
+                    } else {
+                        if (image.isVideo()) {
+                            Intent intent = new Intent(getContext(), VideoPlayerActivity.class);
+                            intent.putExtra(VideoPlayerActivity.EXTRA_VIDEO_URI, image.getUri());
+                            startActivity(intent);
+                        } else if (images != null && !images.isEmpty()) {
+                            ImageDataHolder.getInstance().setImageList(images);
+                            Intent intent = new Intent(getContext(), PhotoViewActivity.class);
+                            intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_POSITION, images.indexOf(image));
+                            startActivity(intent);
+                        }
+                    }
+                },
+                // Long-click listener
+                this::toggleSelection
+        );
+        binding.recyclerViewPictures.setLayoutManager(new GridLayoutManager(getContext(), 3));
+        binding.recyclerViewPictures.setAdapter(picturesAdapter);
+    }
 
-        // UPDATED: Check media type to launch appropriate activity
-        picturesAdapter = new PicturesAdapter(image -> {
-            if (image.isVideo()) {
-                Intent intent = new Intent(getContext(), VideoPlayerActivity.class);
-                intent.putExtra(VideoPlayerActivity.EXTRA_VIDEO_URI, image.getUri());
-                startActivity(intent);
-            } else if (images != null && !images.isEmpty()) {
-                // Original logic for images
-                ImageDataHolder.getInstance().setImageList(images);
-                Intent intent = new Intent(getContext(), PhotoViewActivity.class);
-                intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_POSITION, images.indexOf(image));
-                startActivity(intent);
+    private void toggleSelection(Image image) {
+        picturesAdapter.toggleSelection(image);
+        int selectionCount = picturesAdapter.getSelectedImages().size();
+
+        if (selectionCount > 0) {
+            if (actionMode == null) {
+                actionMode = ((AppCompatActivity) requireActivity()).startSupportActionMode(this);
             }
-        });
+            actionMode.setTitle(selectionCount + " selected");
+            actionMode.invalidate();
+        } else {
+            if (actionMode != null) {
+                actionMode.finish();
+            }
+        }
+    }
 
-        recyclerView.setAdapter(picturesAdapter);
+    // --- ActionMode.Callback Implementation ---
+    @Override
+    public boolean onCreateActionMode(androidx.appcompat.view.ActionMode mode, Menu menu) {
+        mode.getMenuInflater().inflate(R.menu.multi_select_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareActionMode(androidx.appcompat.view.ActionMode mode, Menu menu) {
+        return false;
+    }
+
+    @Override
+    public boolean onActionItemClicked(androidx.appcompat.view.ActionMode mode, MenuItem item) {
+        List<Image> selectedImages = picturesAdapter.getSelectedImages();
+        List<Uri> uris = selectedImages.stream().map(Image::getUri).collect(Collectors.toList());
+
+        if (uris.isEmpty()) return true;
+
+        if (item.getItemId() == R.id.action_move_to_album) {
+            MoveToAlbumDialogFragment dialog = MoveToAlbumDialogFragment.newInstance(uris);
+            dialog.show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            mode.finish();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void onDestroyActionMode(androidx.appcompat.view.ActionMode mode) {
+        actionMode = null;
+        picturesAdapter.clearSelection();
     }
 
     private void requestStoragePermission() {
@@ -92,8 +179,7 @@ public class PicturesFragment extends Fragment {
             permission = Manifest.permission.READ_EXTERNAL_STORAGE;
         }
 
-        if (ContextCompat.checkSelfPermission(
-                requireContext(), permission) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(requireContext(), permission) == PackageManager.PERMISSION_GRANTED) {
             picturesViewModel.loadImages();
         } else {
             requestPermissionLauncher.launch(permission);
@@ -103,6 +189,9 @@ public class PicturesFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        if (actionMode != null) {
+            actionMode.finish();
+        }
         binding = null;
     }
 }
