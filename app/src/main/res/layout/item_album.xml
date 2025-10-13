@@ -4,8 +4,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
-    app:cardCornerRadius="8dp">
+    android:layout_margin="4dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -43,6 +44,7 @@
             app:layout_constraintStart_toStartOf="@id/album_cover"
             app:layout_constraintEnd_toEndOf="@id/album_cover"
             app:tint="@color/white" />
+
         <TextView
             android:id="@+id/album_name"
             android:layout_width="0dp"

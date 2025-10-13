@@ -39,10 +39,10 @@ import com.bretttech.gallery.ui.pictures.PicturesAdapter;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// MODIFIED: Removed the old OnMoveCompleteListener
 public class AlbumDetailFragment extends Fragment implements androidx.appcompat.view.ActionMode.Callback {
 
     private FragmentAlbumDetailBinding binding;
@@ -51,36 +51,38 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
     private List<Image> images;
     private String albumFolderPath;
     private androidx.appcompat.view.ActionMode actionMode;
+    private AlbumsViewModel albumsViewModel;
 
     private final ActivityResultLauncher<IntentSenderRequest> actionResultLauncher =
             registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
                 if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
-                    Toast.makeText(getContext(), R.string.delete_success, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Item deleted", Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(getContext(), R.string.delete_fail, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Failed to delete item", Toast.LENGTH_SHORT).show();
                 }
-                if (albumFolderPath != null) {
-                    viewModel.loadImagesFromAlbum(albumFolderPath);
-                }
+                viewModel.loadImagesFromAlbum(albumFolderPath);
             });
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // NEW: This is the robust listener that will receive the result from the move dialog.
+        albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
+
         getParentFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this, (requestKey, bundle) -> {
             boolean success = bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS);
             if (success) {
-                // If the move was successful, reload the images for this album.
-                // This will fetch the new, valid URIs and fix the "broken files" issue.
-                if (viewModel != null && albumFolderPath != null) {
-                    viewModel.loadImagesFromAlbum(albumFolderPath);
+                ArrayList<Uri> movedUris = bundle.getParcelableArrayList(MoveToAlbumDialogFragment.KEY_MOVED_URIS);
+                if (picturesAdapter != null && movedUris != null) {
+                    // This now works because Image.equals() is correctly implemented.
+                    picturesAdapter.removeImagesByUri(movedUris);
+                }
+                if (albumsViewModel != null) {
+                    albumsViewModel.loadAlbums();
                 }
             }
         });
     }
-
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -101,9 +103,9 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
             }
         }
 
-        viewModel.getImages().observe(getViewLifecycleOwner(), images -> {
-            this.images = images;
-            picturesAdapter.setImages(images);
+        viewModel.getImages().observe(getViewLifecycleOwner(), imageList -> {
+            this.images = imageList;
+            picturesAdapter.setImages(imageList);
         });
 
         return binding.getRoot();
@@ -119,7 +121,6 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
 
     private void setupRecyclerView() {
         picturesAdapter = new PicturesAdapter(
-                // 1. Single-click listener
                 image -> {
                     if (actionMode != null) {
                         toggleSelection(image);
@@ -136,7 +137,6 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
                         }
                     }
                 },
-                // 2. Long-click listener (starts selection mode)
                 this::toggleSelection
         );
         binding.recyclerViewAlbumDetail.setLayoutManager(new GridLayoutManager(getContext(), 3));
@@ -160,7 +160,6 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
         }
     }
 
-    // --- ActionMode.Callback Implementation ---
     @Override
     public boolean onCreateActionMode(androidx.appcompat.view.ActionMode mode, Menu menu) {
         mode.getMenuInflater().inflate(R.menu.multi_select_menu, menu);
@@ -171,15 +170,9 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
     public boolean onPrepareActionMode(androidx.appcompat.view.ActionMode mode, Menu menu) {
         MenuItem setWallpaperItem = menu.findItem(R.id.action_set_wallpaper);
         List<Image> selectedImages = picturesAdapter.getSelectedImages();
-
-        boolean isSingleImage = selectedImages.size() == 1
-                && !selectedImages.get(0).isVideo();
-
-        setWallpaperItem.setVisible(isSingleImage);
-
+        setWallpaperItem.setVisible(selectedImages.size() == 1 && !selectedImages.get(0).isVideo());
         MenuItem moveToAlbumItem = menu.findItem(R.id.action_move_to_album);
         moveToAlbumItem.setVisible(!selectedImages.isEmpty());
-
         return true;
     }
 
@@ -197,20 +190,16 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
         if (itemId == R.id.action_delete) {
             trashMediaItems(uris);
             mode.finish();
-            return true;
         } else if (itemId == R.id.action_set_wallpaper) {
-            if (selectedImages.size() == 1) {
-                setWallpaper(selectedImages.get(0));
-                mode.finish();
-                return true;
-            }
-        } else if (itemId == R.id.action_move_to_album) {
-            MoveToAlbumDialogFragment dialog = MoveToAlbumDialogFragment.newInstance(uris);
-            dialog.show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            if (selectedImages.size() == 1) setWallpaper(selectedImages.get(0));
             mode.finish();
-            return true;
+        } else if (itemId == R.id.action_move_to_album) {
+            MoveToAlbumDialogFragment.newInstance(uris).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            mode.finish();
+        } else {
+            return false;
         }
-        return false;
+        return true;
     }
 
     @Override
@@ -219,28 +208,22 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
         picturesAdapter.clearSelection();
     }
 
-    // REMOVED: The old onMoveComplete method is no longer needed.
-
     private void trashMediaItems(List<Uri> uris) {
-        // ... this method remains the same ...
         ContentResolver contentResolver = requireContext().getContentResolver();
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 IntentSender intentSender = MediaStore.createTrashRequest(contentResolver, uris, true).getIntentSender();
-                IntentSenderRequest request = new IntentSenderRequest.Builder(intentSender).build();
-                actionResultLauncher.launch(request);
+                actionResultLauncher.launch(new IntentSenderRequest.Builder(intentSender).build());
             } else {
                 for (Uri uri : uris) {
                     contentResolver.delete(uri, null, null);
                 }
                 viewModel.loadImagesFromAlbum(albumFolderPath);
-                Toast.makeText(getContext(), getString(R.string.delete_success, uris.size()), Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), uris.size() + " items moved to trash", Toast.LENGTH_SHORT).show();
             }
         } catch (SecurityException e) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e instanceof RecoverableSecurityException) {
-                RecoverableSecurityException rse = (RecoverableSecurityException) e;
-                IntentSenderRequest request = new IntentSenderRequest.Builder(rse.getUserAction().getActionIntent().getIntentSender()).build();
-                actionResultLauncher.launch(request);
+                actionResultLauncher.launch(new IntentSenderRequest.Builder(((RecoverableSecurityException) e).getUserAction().getActionIntent().getIntentSender()).build());
             } else {
                 Toast.makeText(getContext(), "Error: Permission denied", Toast.LENGTH_SHORT).show();
             }
@@ -250,18 +233,13 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
     }
 
     private void setWallpaper(Image image) {
-        // ... this method remains the same ...
         if (image.isVideo()) {
             Toast.makeText(getContext(), R.string.wallpaper_error, Toast.LENGTH_SHORT).show();
             return;
         }
-        Context context = requireContext();
-        WallpaperManager wallpaperManager = WallpaperManager.getInstance(context);
-        try (InputStream inputStream = context.getContentResolver().openInputStream(image.getUri())) {
-            if (inputStream != null) {
-                wallpaperManager.setStream(inputStream);
-                Toast.makeText(context, "Wallpaper set successfully!", Toast.LENGTH_LONG).show();
-            }
+        try (InputStream inputStream = requireContext().getContentResolver().openInputStream(image.getUri())) {
+            WallpaperManager.getInstance(getContext()).setStream(inputStream);
+            Toast.makeText(getContext(), "Wallpaper set successfully!", Toast.LENGTH_LONG).show();
         } catch (IOException e) {
             Toast.makeText(getContext(), "Failed to set wallpaper: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }

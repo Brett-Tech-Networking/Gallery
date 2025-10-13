@@ -19,7 +19,7 @@ import java.util.List;
 public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.PictureViewHolder> {
 
     private List<Image> images = new ArrayList<>();
-    private final List<Image> selectedImages = new ArrayList<>(); // To track selected items
+    private final List<Image> selectedImages = new ArrayList<>();
     private final OnPictureClickListener clickListener;
     private final OnPictureLongClickListener longClickListener;
 
@@ -83,7 +83,33 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
         notifyDataSetChanged();
     }
 
-    // --- Selection Methods ---
+    /**
+     * Removes a list of images from the adapter based on their URIs and notifies the RecyclerView.
+     * This provides an immediate visual update.
+     * @param urisToRemove The list of URIs for the images to be removed.
+     */
+    public void removeImagesByUri(List<Uri> urisToRemove) {
+        if (urisToRemove == null || urisToRemove.isEmpty() || this.images.isEmpty()) {
+            return;
+        }
+
+        List<Image> itemsToRemove = new ArrayList<>();
+        for (Uri uri : urisToRemove) {
+            for (Image image : this.images) {
+                if (image.getUri().equals(uri)) {
+                    itemsToRemove.add(image);
+                    break;
+                }
+            }
+        }
+
+        if (!itemsToRemove.isEmpty()) {
+            this.images.removeAll(itemsToRemove);
+            notifyDataSetChanged(); // Use notifyDataSetChanged for simplicity and robustness here.
+        }
+    }
+
+
     public void toggleSelection(Image image) {
         if (selectedImages.contains(image)) {
             selectedImages.remove(image);
@@ -111,7 +137,6 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
             super(binding.getRoot());
             imageView = binding.imageView;
             videoIndicator = binding.videoIndicator;
-            // Ensure you have a view with this ID in item_picture.xml
             selectionOverlay = binding.selectionOverlay;
         }
     }

@@ -28,12 +28,12 @@ import com.bretttech.gallery.PhotoViewActivity;
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.VideoPlayerActivity;
 import com.bretttech.gallery.databinding.FragmentPicturesBinding;
+import com.bretttech.gallery.ui.albums.AlbumsViewModel;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// CORRECTED: This fragment now implements ActionMode.Callback for multi-select functionality.
 public class PicturesFragment extends Fragment implements androidx.appcompat.view.ActionMode.Callback {
 
     private FragmentPicturesBinding binding;
@@ -41,6 +41,7 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
     private PicturesAdapter picturesAdapter;
     private List<Image> images = new ArrayList<>();
     private androidx.appcompat.view.ActionMode actionMode;
+    private AlbumsViewModel albumsViewModel;
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -55,14 +56,16 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // This is the listener that replaces the old OnMoveCompleteListener.
-        // It listens for a result from the dialog.
+        albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
+
         getParentFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this, (requestKey, bundle) -> {
             boolean success = bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS);
             if (success) {
-                // If the move was successful, reload the pictures.
-                if (picturesViewModel != null) {
-                    picturesViewModel.loadImages();
+                if (getParentFragmentManager() != null) {
+                    getParentFragmentManager().beginTransaction().detach(this).attach(this).commit();
+                }
+                if (albumsViewModel != null) {
+                    albumsViewModel.loadAlbums();
                 }
             }
         });
@@ -96,7 +99,6 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
 
     private void setupRecyclerView() {
         picturesAdapter = new PicturesAdapter(
-                // Single-click listener
                 image -> {
                     if (actionMode != null) {
                         toggleSelection(image);
@@ -113,7 +115,6 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
                         }
                     }
                 },
-                // Long-click listener
                 this::toggleSelection
         );
         binding.recyclerViewPictures.setLayoutManager(new GridLayoutManager(getContext(), 3));
@@ -137,7 +138,6 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
         }
     }
 
-    // --- ActionMode.Callback Implementation ---
     @Override
     public boolean onCreateActionMode(androidx.appcompat.view.ActionMode mode, Menu menu) {
         mode.getMenuInflater().inflate(R.menu.multi_select_menu, menu);
