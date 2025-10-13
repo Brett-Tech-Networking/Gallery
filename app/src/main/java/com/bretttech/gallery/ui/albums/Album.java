@@ -8,15 +8,17 @@ public class Album {
     private final Uri coverImageUri;
     private final int imageCount;
     private final String folderPath;
-    private final int coverMediaType; // <-- NEW field
+    private final int coverMediaType;
+    private final long dateAdded; // <-- NEW field
 
     // UPDATED constructor
-    public Album(String name, Uri coverImageUri, int imageCount, String folderPath, int coverMediaType) {
+    public Album(String name, Uri coverImageUri, int imageCount, String folderPath, int coverMediaType, long dateAdded) {
         this.name = name;
         this.coverImageUri = coverImageUri;
         this.imageCount = imageCount;
         this.folderPath = folderPath;
-        this.coverMediaType = coverMediaType; // <-- store cover media type
+        this.coverMediaType = coverMediaType;
+        this.dateAdded = dateAdded; // <-- store cover date
     }
 
     public String getName() {
@@ -35,12 +37,15 @@ public class Album {
         return folderPath;
     }
 
-    // NEW getter
     public int getCoverMediaType() {
         return coverMediaType;
     }
 
-    // NEW helper method
+    // NEW getter
+    public long getDateAdded() {
+        return dateAdded;
+    }
+
     public boolean isCoverVideo() {
         return coverMediaType == Image.MEDIA_TYPE_VIDEO;
     }

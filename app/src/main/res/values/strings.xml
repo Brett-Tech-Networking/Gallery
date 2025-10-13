@@ -7,4 +7,12 @@
     <string name="action_restore">Restore</string>
     <string name="action_delete_forever">Delete Forever</string>
     <string name="video_indicator_desc">Video thumbnail indicator</string>
+
+    <string name="action_sort">Sort</string>
+    <string name="sort_name_asc">Name (A-Z)</string>
+    <string name="sort_name_desc">Name (Z-A)</string>
+    <string name="sort_date_desc">Last Updated (Newest)</string>
+    <string name="sort_date_asc">Last Updated (Oldest)</string>
+    <string name="sort_count_desc">Most Pictures</string>
+    <string name="sort_count_asc">Least Pictures</string>
 </resources>
