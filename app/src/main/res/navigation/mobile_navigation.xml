@@ -29,7 +29,7 @@
         android:label="Album Detail"
         tools:layout="@layout/fragment_album_detail" />
 
-    <fragment
+    <dialog
         android:id="@+id/navigation_menu"
         android:name="com.bretttech.gallery.ui.menu.MenuFragment"
         android:label="@string/title_menu"
@@ -37,11 +37,20 @@
         <action
             android:id="@+id/action_navigation_menu_to_trashFragment"
             app:destination="@id/trashFragment" />
-    </fragment>
+        <action
+            android:id="@+id/action_navigation_menu_to_secureFolderFragment"
+            app:destination="@id/secureFolderFragment" />
+    </dialog>
 
     <fragment
         android:id="@+id/trashFragment"
         android:name="com.bretttech.gallery.ui.trash.TrashFragment"
         android:label="@string/title_trash"
         tools:layout="@layout/fragment_trash" />
+
+    <fragment
+        android:id="@+id/secureFolderFragment"
+        android:name="com.bretttech.gallery.ui.secure.SecureFolderFragment"
+        android:label="@string/title_secure_folder"
+        tools:layout="@layout/fragment_secure_folder" />
 </navigation>

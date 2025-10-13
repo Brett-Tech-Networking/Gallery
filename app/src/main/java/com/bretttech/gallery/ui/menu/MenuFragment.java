@@ -6,17 +6,18 @@ import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.databinding.FragmentMenuBinding;
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
-public class MenuFragment extends Fragment {
+public class MenuFragment extends BottomSheetDialogFragment {
 
     private FragmentMenuBinding binding;
 
-    public View onCreateView(@NonNull LayoutInflater inflater,
-                             ViewGroup container, Bundle savedInstanceState) {
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         binding = FragmentMenuBinding.inflate(inflater, container, false);
         return binding.getRoot();
     }
@@ -26,7 +27,13 @@ public class MenuFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         binding.menuPopup.menuTrashBin.setOnClickListener(v -> {
+            dismiss(); // Dismiss the bottom sheet
             NavHostFragment.findNavController(this).navigate(R.id.action_navigation_menu_to_trashFragment);
+        });
+
+        binding.menuPopup.menuSecureFolder.setOnClickListener(v -> {
+            dismiss(); // Dismiss the bottom sheet
+            NavHostFragment.findNavController(this).navigate(R.id.action_navigation_menu_to_secureFolderFragment);
         });
     }
 

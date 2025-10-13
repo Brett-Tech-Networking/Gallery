@@ -157,10 +157,12 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
         if (uris.isEmpty()) return true;
 
         if (item.getItemId() == R.id.action_move_to_album) {
-            MoveToAlbumDialogFragment dialog = MoveToAlbumDialogFragment.newInstance(uris);
-            dialog.show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            MoveToAlbumDialogFragment.newInstance(uris, false).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
             mode.finish();
             return true;
+        } else if (item.getItemId() == R.id.action_move_to_secure_folder) {
+            MoveToAlbumDialogFragment.newInstance(uris, true).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            mode.finish();
         }
         return false;
     }

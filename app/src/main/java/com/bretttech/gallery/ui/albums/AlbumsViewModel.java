@@ -112,10 +112,11 @@ public class AlbumsViewModel extends AndroidViewModel {
                     MediaStore.Files.FileColumns.DATE_ADDED
             };
 
-            String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?)";
+            String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?) AND " + MediaStore.Files.FileColumns.DATA + " NOT LIKE ?";
             String[] selectionArgs = new String[]{
                     String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE),
-                    String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
+                    String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO),
+                    "%" + getApplication().getFilesDir().getAbsolutePath() + "/secure%"
             };
 
             try (Cursor cursor = getApplication().getContentResolver().query(

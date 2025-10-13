@@ -17,6 +17,7 @@ navigation = "2.9.5"
 ucrop = "2.2.8"
 # This is the correct, verified version for the Java-based PhotoEditor
 photoeditor = "1.5.1"
+biometric = "1.1.0" # Add this line
 
 [libraries]
 appcompat-v161 = { module = "androidx.appcompat:appcompat", version.ref = "appcompatVersion" }
@@ -37,6 +38,7 @@ androidx-navigation-ui = { group = "androidx.navigation", name = "navigation-ui"
 ucrop = { group = "com.github.yalantis", name = "ucrop", version.ref = "ucrop" }
 # THIS IS THE CORRECT, VERIFIED DEPENDENCY COORDINATE
 photoeditor = { group = "com.burhanrashid52", name = "photoeditor", version.ref = "photoeditor" }
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" } # Add this line
 
 
 [plugins]

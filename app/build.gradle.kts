@@ -49,11 +49,13 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 
-    // Add the Glide library for efficient image loading
+    // Add the Glide library
     implementation(libs.glide)
     // Add pinch zoom in gallery
     implementation(libs.photoview)
     implementation(libs.ucrop)
     implementation(libs.photoeditor)
-}
 
+    // Add Biometric library
+    implementation(libs.androidx.biometric)
+}

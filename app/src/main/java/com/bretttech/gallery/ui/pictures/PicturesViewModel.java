@@ -11,6 +11,7 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -41,14 +42,16 @@ public class PicturesViewModel extends AndroidViewModel {
             String[] projection = {
                     MediaStore.Files.FileColumns._ID,
                     MediaStore.Files.FileColumns.MEDIA_TYPE,
+                    MediaStore.Files.FileColumns.DATA,
                     MediaStore.Files.FileColumns.DATE_TAKEN
             };
 
             // NEW: Selection to filter for only images and videos
-            String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?)";
+            String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?) AND " + MediaStore.Files.FileColumns.DATA + " NOT LIKE ?";
             String[] selectionArgs = new String[]{
                     String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE),
-                    String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
+                    String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO),
+                    "%" + getApplication().getFilesDir().getAbsolutePath() + "/secure%"
             };
 
             String sortOrder = MediaStore.Files.FileColumns.DATE_TAKEN + " DESC";

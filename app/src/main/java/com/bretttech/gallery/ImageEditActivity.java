@@ -144,24 +144,20 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
 
     private void setupListeners() {
         findViewById(R.id.imgClose).setOnClickListener(this);
-        findViewById(R.id.btnSave).setOnClickListener(this);
-        findViewById(R.id.btnCancel).setOnClickListener(this);
         findViewById(R.id.tool_adjust).setOnClickListener(this);
         findViewById(R.id.tool_filters).setOnClickListener(this);
         findViewById(R.id.tool_crop_rotate).setOnClickListener(this);
-        adjustToolsPanel.findViewById(R.id.adjust_done_button).setOnClickListener(v -> {
-            originalBitmap = adjustedBitmap;
-            hideAllToolPanels();
-        });
+
+        // Listeners for the new buttons inside the adjustment panel
+        adjustToolsPanel.findViewById(R.id.btnSaveAdjust).setOnClickListener(v -> saveImage());
+        adjustToolsPanel.findViewById(R.id.btnCancelAdjust).setOnClickListener(v -> finish());
     }
 
     @Override
     public void onClick(View v) {
         int id = v.getId();
-        if (id == R.id.imgClose || id == R.id.btnCancel) {
+        if (id == R.id.imgClose) {
             finish();
-        } else if (id == R.id.btnSave) {
-            saveImage();
         } else if (id == R.id.tool_adjust) {
             setupAdjustmentsPanel();
             showToolPanel(adjustToolsPanel);
@@ -185,16 +181,27 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     }
 
     private void hideAllToolPanels() {
+        // Reset the view to the last saved state before hiding panels
+        mPhotoEditorView.getSource().setImageBitmap(originalBitmap);
+        // Also reset any adjustment values
+        brightnessValue = 0f;
+        contrastValue = 1f;
+        saturationValue = 1f;
+
         toolPropertiesContainer.setVisibility(View.GONE);
         mainToolNavigation.setVisibility(View.VISIBLE);
-        mPhotoEditorView.getSource().setImageBitmap(originalBitmap);
     }
 
     private void setupAdjustmentsPanel() {
         List<AdjustmentsAdapter.AdjustmentTool> tools = new ArrayList<>();
         tools.add(new AdjustmentsAdapter.AdjustmentTool("Brightness", R.drawable.ic_brightness, true));
-        tools.add(new AdjustmentsAdapter.AdjustmentTool("Contrast", R.drawable.ic_restore, false));
+        tools.add(new AdjustmentsAdapter.AdjustmentTool("Exposure", R.drawable.ic_brightness, false)); // Placeholder
+        tools.add(new AdjustmentsAdapter.AdjustmentTool("Contrast", R.drawable.ic_filter, false)); // Placeholder icon
         tools.add(new AdjustmentsAdapter.AdjustmentTool("Saturation", R.drawable.ic_filter, false));
+        tools.add(new AdjustmentsAdapter.AdjustmentTool("Highlight", R.drawable.ic_sort, false)); // Placeholder
+        tools.add(new AdjustmentsAdapter.AdjustmentTool("Shadow", R.drawable.ic_sort, false)); // Placeholder
+        tools.add(new AdjustmentsAdapter.AdjustmentTool("Vignette", R.drawable.ic_sort, false)); // Placeholder
+
         AdjustmentsAdapter adapter = new AdjustmentsAdapter(this, tools, tool -> {
             currentAdjustmentType = tool.name;
             updateSeekBarForCurrentTool();
@@ -227,7 +234,14 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
 
     private void updateValueFromSeekBar(int progress) {
         int value = progress - 100;
-        sliderValueText.setText((value > 0 ? "+" : "") + value);
+        String prefix = value > 0 ? "+" : "";
+        // For Contrast/Saturation, we can show a percentage or multiplier
+        if ("Contrast".equals(currentAdjustmentType) || "Saturation".equals(currentAdjustmentType)) {
+            sliderValueText.setText(prefix + value);
+        } else { // Brightness
+            sliderValueText.setText(prefix + value);
+        }
+
         if ("Brightness".equals(currentAdjustmentType)) brightnessValue = value;
         else if ("Contrast".equals(currentAdjustmentType)) contrastValue = progress / 100f;
         else if ("Saturation".equals(currentAdjustmentType)) saturationValue = progress / 100f;
@@ -301,6 +315,7 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
                 public void onSuccess(@NonNull String imagePath) {
                     Toast.makeText(ImageEditActivity.this, "Saved successfully!", Toast.LENGTH_SHORT).show();
                     sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(new File(imagePath))));
+                    finish(); // Close activity after saving
                 }
                 @Override
                 public void onFailure(@NonNull Exception exception) {

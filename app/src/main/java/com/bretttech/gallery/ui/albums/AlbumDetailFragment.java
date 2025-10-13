@@ -74,7 +74,6 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
             if (success) {
                 ArrayList<Uri> movedUris = bundle.getParcelableArrayList(MoveToAlbumDialogFragment.KEY_MOVED_URIS);
                 if (picturesAdapter != null && movedUris != null) {
-                    // This now works because Image.equals() is correctly implemented.
                     picturesAdapter.removeImagesByUri(movedUris);
                 }
                 if (albumsViewModel != null) {
@@ -194,7 +193,10 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
             if (selectedImages.size() == 1) setWallpaper(selectedImages.get(0));
             mode.finish();
         } else if (itemId == R.id.action_move_to_album) {
-            MoveToAlbumDialogFragment.newInstance(uris).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            MoveToAlbumDialogFragment.newInstance(uris, false).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            mode.finish();
+        } else if (item.getItemId() == R.id.action_move_to_secure_folder) {
+            MoveToAlbumDialogFragment.newInstance(uris, true).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
             mode.finish();
         } else {
             return false;

@@ -9,7 +9,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,8 +27,12 @@ import com.bretttech.gallery.ui.albums.AlbumsViewModel;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
@@ -37,22 +40,20 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
     public static final String TAG = "MoveToAlbumDialog";
     public static final String REQUEST_KEY = "move_complete_request";
     public static final String KEY_MOVE_SUCCESS = "move_success";
-    public static final String KEY_MOVED_URIS = "moved_uris"; // Key to send back the list
+    public static final String KEY_MOVED_URIS = "moved_uris";
 
     private static final String ARG_URIS = "uris_to_move";
+    private static final String ARG_IS_SECURE_MOVE = "is_secure_move";
 
     private AlbumsViewModel albumsViewModel;
     private List<Uri> urisToMove;
+    private boolean isSecureMove = false;
 
-    // MediaMetadata class and newInstance method
-    private static class MediaMetadata {
-        String mimeType; String data; long dateAdded; long dateModified; long dateTaken;
-    }
-
-    public static MoveToAlbumDialogFragment newInstance(List<Uri> uris) {
+    public static MoveToAlbumDialogFragment newInstance(List<Uri> uris, boolean isSecureMove) {
         MoveToAlbumDialogFragment fragment = new MoveToAlbumDialogFragment();
         Bundle args = new Bundle();
         args.putParcelableArrayList(ARG_URIS, new ArrayList<>(uris));
+        args.putBoolean(ARG_IS_SECURE_MOVE, isSecureMove);
         fragment.setArguments(args);
         return fragment;
     }
@@ -60,7 +61,10 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        urisToMove = getArguments() != null ? getArguments().getParcelableArrayList(ARG_URIS) : new ArrayList<>();
+        if (getArguments() != null) {
+            urisToMove = getArguments().getParcelableArrayList(ARG_URIS);
+            isSecureMove = getArguments().getBoolean(ARG_IS_SECURE_MOVE);
+        }
     }
 
     @Nullable
@@ -72,134 +76,186 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
+        if (isSecureMove) {
+            moveToSecureFolder();
+            return;
+        }
+
         RecyclerView recyclerView = view.findViewById(R.id.albums_recycler_view);
         recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        AlbumsAdapter albumsAdapter = new AlbumsAdapter(null, this::onAlbumSelected);
+        AlbumsAdapter albumsAdapter = new AlbumsAdapter(new ArrayList<>(), this::onAlbumSelected);
         recyclerView.setAdapter(albumsAdapter);
+
         albumsViewModel = new ViewModelProvider(this).get(AlbumsViewModel.class);
         albumsViewModel.getAlbums().observe(getViewLifecycleOwner(), albumsAdapter::setAlbums);
         albumsViewModel.loadAlbums();
     }
 
     private void onAlbumSelected(Album album) {
-        if (urisToMove.isEmpty()) {
-            Toast.makeText(requireContext(), "No items selected to move.", Toast.LENGTH_SHORT).show();
-            dismiss();
-            return;
-        }
-
-        final Context context = requireContext().getApplicationContext();
-        Toast.makeText(requireContext(), "Moving " + urisToMove.size() + " item(s) to " + album.getName(), Toast.LENGTH_SHORT).show();
-
-        new Thread(() -> {
-            boolean success = moveMediaItems(urisToMove, album.getFolderPath(), context);
-            if (success && isAdded()) {
-                requireActivity().runOnUiThread(() -> {
-                    Bundle result = new Bundle();
-                    result.putBoolean(KEY_MOVE_SUCCESS, true);
-                    result.putParcelableArrayList(KEY_MOVED_URIS, new ArrayList<>(urisToMove));
-                    getParentFragmentManager().setFragmentResult(REQUEST_KEY, result);
-                    Toast.makeText(requireContext(), urisToMove.size() + " item(s) moved.", Toast.LENGTH_SHORT).show();
-                });
-            }
-        }).start();
-
+        moveUrisTo(album.getFolderPath());
         dismiss();
     }
 
-    // The rest of the file remains unchanged
-    private boolean moveMediaItems(List<Uri> uris, String destinationAbsolutePath, Context appContext) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            return moveMediaItemsApi29(uris, destinationAbsolutePath, appContext);
-        } else {
-            return moveMediaItemsLegacy(uris, destinationAbsolutePath, appContext);
+    private void moveToSecureFolder() {
+        File secureDir = new File(requireContext().getFilesDir(), "secure");
+        if (!secureDir.exists()) {
+            secureDir.mkdirs();
         }
+        moveUrisTo(secureDir.getAbsolutePath());
+        dismiss();
     }
 
-    private boolean moveMediaItemsApi29(List<Uri> uris, String destinationAbsolutePath, Context appContext) {
-        ContentResolver contentResolver = appContext.getContentResolver();
-        int movedCount = 0;
-        String relativePath = getRelativePathForMediaStore(destinationAbsolutePath);
-        if (relativePath == null) {
-            Log.e(TAG, "Could not determine relative path for: " + destinationAbsolutePath);
+    private void moveUrisTo(String destinationPath) {
+        if (urisToMove == null || urisToMove.isEmpty()) {
+            Toast.makeText(getContext(), "No items to move.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new Thread(() -> {
+            boolean allFilesMoved = true;
+            for (Uri uri : urisToMove) {
+                boolean success = false;
+                String scheme = uri.getScheme();
+                if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
+                    // Moving FROM MediaStore (public) TO a file path (private/secure)
+                    success = moveFromMediaStoreToPath(uri, destinationPath);
+                } else if (ContentResolver.SCHEME_FILE.equals(scheme)) {
+                    // Moving FROM a file path (private/secure) TO MediaStore (public)
+                    success = moveFromFileToMediaStore(new File(uri.getPath()), destinationPath) != null;
+                }
+
+                if (!success) {
+                    allFilesMoved = false;
+                    break;
+                }
+            }
+
+            boolean finalAllFilesMoved = allFilesMoved;
+            if (isAdded()) {
+                requireActivity().runOnUiThread(() -> {
+                    Toast.makeText(getContext(), finalAllFilesMoved ? "Move successful" : "Move failed", Toast.LENGTH_SHORT).show();
+                    Bundle result = new Bundle();
+                    result.putBoolean(KEY_MOVE_SUCCESS, finalAllFilesMoved);
+                    result.putParcelableArrayList(KEY_MOVED_URIS, new ArrayList<>(urisToMove));
+                    getParentFragmentManager().setFragmentResult(REQUEST_KEY, result);
+                });
+            }
+        }).start();
+    }
+
+    private boolean moveFromMediaStoreToPath(Uri sourceUri, String destinationPath) {
+        Context context = getContext();
+        if (context == null) return false;
+
+        String fileName = getFileName(sourceUri);
+        if (fileName == null) return false;
+
+        File destinationFile = new File(destinationPath, fileName);
+
+        try (InputStream in = context.getContentResolver().openInputStream(sourceUri);
+             OutputStream out = new FileOutputStream(destinationFile)) {
+            byte[] buf = new byte[1024];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
+            // Now that copy is successful, delete the original
+            context.getContentResolver().delete(sourceUri, null, null);
+            return true;
+        } catch (Exception e) {
             return false;
         }
-        for (Uri uri : uris) {
-            try {
-                ContentValues values = new ContentValues();
-                values.put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath);
-                values.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                if (contentResolver.update(uri, values, null, null) > 0) {
-                    movedCount++;
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error moving media item with contentResolver.update: " + uri, e);
-            }
-        }
-        return movedCount > 0;
     }
 
-    private String getRelativePathForMediaStore(String absolutePath) {
-        File externalStorageDir = Environment.getExternalStorageDirectory();
-        if (absolutePath.startsWith(externalStorageDir.getAbsolutePath())) {
-            String path = absolutePath.substring(externalStorageDir.getAbsolutePath().length());
-            if (path.startsWith(File.separator)) path = path.substring(1);
-            if (!path.endsWith(File.separator)) path += File.separator;
-            return path;
+    private Uri moveFromFileToMediaStore(File sourceFile, String destinationAlbumPath) {
+        Context context = getContext();
+        if (context == null) return null;
+
+        ContentResolver resolver = context.getContentResolver();
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.DISPLAY_NAME, sourceFile.getName());
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg"); // This can be improved to detect MIME type
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Correctly form the relative path
+            String relativePath = getRelativePathFromAbsolute(destinationAlbumPath);
+            if (relativePath == null) return null; // Could not determine relative path
+            values.put(MediaStore.Images.Media.RELATIVE_PATH, relativePath);
+            values.put(MediaStore.Images.Media.IS_PENDING, 1);
+        } else {
+            File destDir = new File(destinationAlbumPath);
+            if (!destDir.exists() && !destDir.mkdirs()) {
+                return null;
+            }
+            values.put(MediaStore.Images.Media.DATA, new File(destDir, sourceFile.getName()).getAbsolutePath());
+        }
+
+        Uri uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        if (uri != null) {
+            try (OutputStream out = resolver.openOutputStream(uri);
+                 InputStream in = new FileInputStream(sourceFile)) {
+                byte[] buf = new byte[1024];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                }
+            } catch (IOException e) {
+                resolver.delete(uri, null, null); // Clean up failed insert
+                return null;
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.clear();
+                values.put(MediaStore.Images.Media.IS_PENDING, 0);
+                resolver.update(uri, values, null, null);
+            }
+            // Now that copy is successful, delete the original
+            sourceFile.delete();
+            return uri;
         }
         return null;
     }
 
-    private boolean moveMediaItemsLegacy(List<Uri> uris, String destinationPath, Context appContext) {
-        ContentResolver contentResolver = appContext.getContentResolver();
-        int movedCount = 0;
-        for (Uri uri : uris) {
-            try {
-                MediaMetadata metadata = queryMetadata(contentResolver, uri);
-                if (metadata == null || metadata.data == null) continue;
-                File oldFile = new File(metadata.data);
-                if (!oldFile.exists()) continue;
-                File newFolder = new File(destinationPath);
-                if (!newFolder.exists()) newFolder.mkdirs();
-                File newFile = new File(newFolder, oldFile.getName());
-                if (oldFile.renameTo(newFile)) {
-                    contentResolver.delete(uri, null, null);
-                    ContentValues values = new ContentValues();
-                    values.put(MediaStore.MediaColumns.DATA, newFile.getAbsolutePath());
-                    contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-                    movedCount++;
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error moving media item: " + uri, e);
-            }
-        }
-        return movedCount > 0;
-    }
-
-    private MediaMetadata queryMetadata(ContentResolver resolver, Uri uri) {
-        final String[] projection = {
-                MediaStore.Files.FileColumns.DATA, MediaStore.Files.FileColumns.MIME_TYPE,
-                MediaStore.Files.FileColumns.DATE_ADDED, MediaStore.Files.FileColumns.DATE_MODIFIED,
-                MediaStore.Images.Media.DATE_TAKEN
+    private String getRelativePathFromAbsolute(String absolutePath) {
+        String[] storageRoots = {
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).getParentFile().getAbsolutePath(),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).getParentFile().getAbsolutePath(),
+                Environment.getExternalStorageDirectory().getAbsolutePath()
         };
-        try (Cursor cursor = resolver.query(uri, projection, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                MediaMetadata metadata = new MediaMetadata();
-                metadata.data = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA));
-                metadata.mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE));
-                metadata.dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED));
-                metadata.dateModified = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED));
-                int dateTakenCol = cursor.getColumnIndex(MediaStore.Images.Media.DATE_TAKEN);
-                if (dateTakenCol != -1 && !cursor.isNull(dateTakenCol)) {
-                    metadata.dateTaken = cursor.getLong(dateTakenCol);
-                } else {
-                    metadata.dateTaken = metadata.dateModified * 1000;
+
+        for (String root : storageRoots) {
+            if (absolutePath.startsWith(root)) {
+                String relativePath = absolutePath.substring(root.length());
+                if (relativePath.startsWith(File.separator)) {
+                    relativePath = relativePath.substring(1);
                 }
-                return metadata;
+                return relativePath;
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Error querying metadata for URI: " + uri, e);
         }
-        return null;
+        return null; // Fallback
+    }
+
+
+    private String getFileName(Uri uri) {
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            try (Cursor cursor = requireContext().getContentResolver().query(uri, null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int index = cursor.getColumnIndex(MediaStore.Images.Media.DISPLAY_NAME);
+                    if (index != -1) {
+                        result = cursor.getString(index);
+                    }
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) {
+                result = result.substring(cut + 1);
+            }
+        }
+        return result;
     }
 }
