@@ -1,8 +1,11 @@
 package com.bretttech.gallery.ui.albums;
 
 import android.app.Activity;
+import android.app.PendingIntent;
+import android.app.RecoverableSecurityException;
 import android.content.ContentResolver;
 import android.content.ContentUris;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.database.Cursor;
@@ -11,6 +14,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -37,7 +41,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.SharedViewModel;
 import com.bretttech.gallery.ui.pictures.Image;
-import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -71,17 +74,10 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
             registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
                 if (result.getResultCode() == Activity.RESULT_OK) {
                     Toast.makeText(getContext(), "Album contents moved to trash.", Toast.LENGTH_SHORT).show();
-                    executor.execute(() -> {
-                        if (mFoldersToDelete != null) {
-                            for (File folder : mFoldersToDelete) {
-                                folder.delete();
-                            }
-                            mFoldersToDelete.clear();
-                        }
-                        if (isAdded()) {
-                            requireActivity().runOnUiThread(() -> albumsViewModel.loadAlbums());
-                        }
-                    });
+                    if (mFoldersToDelete != null && !mFoldersToDelete.isEmpty()) {
+                        deleteFolders(new ArrayList<>(mFoldersToDelete));
+                        mFoldersToDelete.clear();
+                    }
                 } else {
                     Toast.makeText(getContext(), "Failed to move album contents to trash.", Toast.LENGTH_SHORT).show();
                     if (mFoldersToDelete != null) {
@@ -89,7 +85,6 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
                     }
                 }
             });
-
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -283,84 +278,129 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     }
 
     private void moveAlbumsToSecure(List<Album> albumsToMove) {
-        // ... (This logic remains the same and is omitted for brevity)
+        // Your existing logic here
     }
 
     private void startAlbumDeletionProcess(List<Album> albumsToDelete) {
         executor.execute(() -> {
-            if (getContext() == null) return;
+            final Context context = getContext();
+            if (context == null) {
+                Log.w("AlbumsFragment", "Context was null, aborting deletion process.");
+                return;
+            }
 
             mFoldersToDelete = new ArrayList<>();
             List<Uri> urisToTrash = new ArrayList<>();
-            ContentResolver contentResolver = getContext().getContentResolver();
 
             for (Album album : albumsToDelete) {
-                File path = new File(album.getFolderPath());
-                mFoldersToDelete.add(path);
+                File albumDir = new File(album.getFolderPath());
+                mFoldersToDelete.add(albumDir);
                 albumsViewModel.removeCustomCover(album.getFolderPath());
-
-                String[] projection = {MediaStore.Files.FileColumns._ID};
-                String selection = MediaStore.Files.FileColumns.DATA + " LIKE ?";
-                String[] selectionArgs = new String[]{path.getAbsolutePath() + "/%"};
-
-                try (Cursor cursor = contentResolver.query(
-                        MediaStore.Files.getContentUri("external"),
-                        projection, selection, selectionArgs, null)) {
-                    if (cursor != null) {
-                        while (cursor.moveToNext()) {
-                            long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID));
-                            urisToTrash.add(ContentUris.withAppendedId(MediaStore.Files.getContentUri("external"), id));
-                        }
-                    }
-                }
+                urisToTrash.addAll(getMediaUrisForAlbum(context, album.getFolderPath()));
             }
 
             if (urisToTrash.isEmpty()) {
-                for (File folder : mFoldersToDelete) {
-                    folder.delete();
+                Log.d("AlbumsFragment", "No media files found to trash, deleting empty folders.");
+                deleteFolders(mFoldersToDelete);
+                return;
+            }
+
+            requestTrash(context, urisToTrash);
+        });
+    }
+
+    private List<Uri> getMediaUrisForAlbum(Context context, String folderPath) {
+        List<Uri> uris = new ArrayList<>();
+        // Query for images
+        uris.addAll(queryMedia(context, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, folderPath));
+        // Query for videos
+        uris.addAll(queryMedia(context, MediaStore.Video.Media.EXTERNAL_CONTENT_URI, folderPath));
+        return uris;
+    }
+
+    private List<Uri> queryMedia(Context context, Uri contentUri, String folderPath) {
+        List<Uri> uris = new ArrayList<>();
+        String[] projection = {MediaStore.MediaColumns._ID};
+        String selection = MediaStore.MediaColumns.DATA + " LIKE ?";
+        String[] selectionArgs = {folderPath + "/%"};
+
+        try (Cursor cursor = context.getContentResolver().query(contentUri, projection, selection, selectionArgs, null)) {
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
+                    uris.add(ContentUris.withAppendedId(contentUri, id));
                 }
-                mFoldersToDelete.clear();
+            }
+        } catch (Exception e) {
+            Log.e("AlbumsFragment", "Error querying for media in album.", e);
+        }
+        return uris;
+    }
+
+
+    private void requestTrash(Context context, List<Uri> urisToTrash) {
+        ContentResolver resolver = context.getContentResolver();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                PendingIntent trashIntent = MediaStore.createTrashRequest(resolver, urisToTrash, true);
+                IntentSenderRequest request = new IntentSenderRequest.Builder(trashIntent.getIntentSender()).build();
+                trashResultLauncher.launch(request);
+            } catch (Exception e) {
+                Log.e("AlbumsFragment", "Error creating trash request for Android R+", e);
                 if (isAdded()) {
-                    requireActivity().runOnUiThread(() -> {
-                        Toast.makeText(getContext(), "Deleted " + albumsToDelete.size() + " empty album(s)", Toast.LENGTH_SHORT).show();
-                        albumsViewModel.loadAlbums();
-                    });
+                    requireActivity().runOnUiThread(() -> Toast.makeText(context, "Error creating trash request.", Toast.LENGTH_SHORT).show());
                 }
-            } else {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    try {
-                        IntentSender intentSender = MediaStore.createTrashRequest(contentResolver, urisToTrash, true).getIntentSender();
-                        IntentSenderRequest request = new IntentSenderRequest.Builder(intentSender).build();
-                        trashResultLauncher.launch(request);
-                    } catch (Exception e) {
-                        // Handle failure
-                    }
+            }
+        } else {
+            try {
+                for (Uri uri : urisToTrash) {
+                    resolver.delete(uri, null, null);
+                }
+                deleteFolders(mFoldersToDelete);
+            } catch (SecurityException e) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e instanceof RecoverableSecurityException) {
+                    RecoverableSecurityException rse = (RecoverableSecurityException) e;
+                    IntentSenderRequest request = new IntentSenderRequest.Builder(rse.getUserAction().getActionIntent().getIntentSender()).build();
+                    trashResultLauncher.launch(request);
                 } else {
-                    int deleteCount = 0;
-                    for (Uri uri : urisToTrash) {
-                        try {
-                            if (contentResolver.delete(uri, null, null) > 0) {
-                                deleteCount++;
-                            }
-                        } catch (Exception e) {
-                            // ignore
-                        }
-                    }
-                    for (File folder : mFoldersToDelete) {
-                        folder.delete();
-                    }
-                    mFoldersToDelete.clear();
-                    final int finalDeleteCount = deleteCount;
+                    Log.e("AlbumsFragment", "SecurityException on pre-R device.", e);
                     if (isAdded()) {
-                        requireActivity().runOnUiThread(() -> {
-                            Toast.makeText(getContext(), "Permanently deleted " + finalDeleteCount + " items and " + albumsToDelete.size() + " album(s)", Toast.LENGTH_LONG).show();
-                            albumsViewModel.loadAlbums();
-                        });
+                        requireActivity().runOnUiThread(() -> Toast.makeText(context, "Permission denied.", Toast.LENGTH_SHORT).show());
                     }
                 }
             }
+        }
+    }
+
+    private void deleteFolders(List<File> folders) {
+        executor.execute(() -> {
+            try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+
+            for (File folder : folders) {
+                if (folder.exists()) {
+                    deleteDirectory(folder);
+                }
+            }
+            if (isAdded()) {
+                requireActivity().runOnUiThread(() -> albumsViewModel.loadAlbums());
+            }
         });
     }
+
+    private void deleteDirectory(File dir) {
+        if (dir == null || !dir.exists() || !dir.isDirectory()) {
+            return;
+        }
+        for (File file : dir.listFiles()) {
+            if (file.isDirectory()) {
+                deleteDirectory(file);
+            }
+            file.delete();
+        }
+        dir.delete();
+    }
+
 
     @Override
     public void onDestroyActionMode(androidx.appcompat.view.ActionMode mode) {
