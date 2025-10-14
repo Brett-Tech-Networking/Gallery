@@ -1,11 +1,15 @@
 package com.bretttech.gallery.ui.pictures;
 
 import android.Manifest;
+import android.app.RecoverableSecurityException;
+import android.content.ContentResolver;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -14,6 +18,7 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -50,6 +55,16 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
                 } else {
                     Toast.makeText(getContext(), "Permission denied to read your External storage", Toast.LENGTH_SHORT).show();
                 }
+            });
+
+    private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
+                if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
+                    Toast.makeText(getContext(), "Item(s) moved to trash", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getContext(), "Failed to move item(s) to trash", Toast.LENGTH_SHORT).show();
+                }
+                picturesViewModel.loadImages();
             });
 
     @Override
@@ -156,15 +171,69 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
 
         if (uris.isEmpty()) return true;
 
-        if (item.getItemId() == R.id.action_move_to_album) {
+        int itemId = item.getItemId();
+        if (itemId == R.id.action_share) {
+            shareImages(uris);
+            mode.finish();
+            return true;
+        } else if (itemId == R.id.action_move_to_album) {
             MoveToAlbumDialogFragment.newInstance(uris, false).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
             mode.finish();
             return true;
-        } else if (item.getItemId() == R.id.action_move_to_secure_folder) {
+        } else if (itemId == R.id.action_move_to_secure_folder) {
             MoveToAlbumDialogFragment.newInstance(uris, true).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
             mode.finish();
+            return true;
+        } else if (itemId == R.id.action_delete) {
+            trashMediaItems(uris);
+            mode.finish();
+            return true;
         }
         return false;
+    }
+
+    private void shareImages(List<Uri> uris) {
+        if (uris == null || uris.isEmpty()) {
+            return;
+        }
+
+        Intent shareIntent = new Intent();
+        shareIntent.setAction(Intent.ACTION_SEND_MULTIPLE);
+        shareIntent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, new ArrayList<>(uris));
+        shareIntent.setType("*/*"); // Handle both images and videos
+        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        startActivity(Intent.createChooser(shareIntent, "Share to..."));
+    }
+
+    private void trashMediaItems(List<Uri> uris) {
+        ContentResolver contentResolver = requireContext().getContentResolver();
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                IntentSender intentSender = MediaStore.createTrashRequest(contentResolver, uris, true).getIntentSender();
+                trashResultLauncher.launch(new IntentSenderRequest.Builder(intentSender).build());
+            } else {
+                if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+                    for (Uri uri : uris) {
+                        try {
+                            contentResolver.delete(uri, null, null);
+                        } catch (RecoverableSecurityException e) {
+                            IntentSenderRequest request = new IntentSenderRequest.Builder(e.getUserAction().getActionIntent().getIntentSender()).build();
+                            trashResultLauncher.launch(request);
+                            return;
+                        }
+                    }
+                } else {
+                    for (Uri uri : uris) {
+                        contentResolver.delete(uri, null, null);
+                    }
+                    Toast.makeText(getContext(), uris.size() + " item(s) permanently deleted", Toast.LENGTH_SHORT).show();
+                }
+                picturesViewModel.loadImages();
+            }
+        } catch (Exception e) {
+            Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override

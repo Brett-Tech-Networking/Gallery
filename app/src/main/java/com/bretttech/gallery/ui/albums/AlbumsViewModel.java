@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Environment;
 import android.provider.MediaStore;
 
 import androidx.annotation.NonNull;
@@ -58,12 +59,9 @@ public class AlbumsViewModel extends AndroidViewModel {
         return allAlbumsUnfilteredLiveData;
     }
 
-    // NOTE: This relies on the SharedViewModel's refresh signal to immediately call loadAlbums()
-    // after the visibility state is saved synchronously in AlbumVisibilityManager.
     public void setAlbumVisibility(String albumPath, boolean isHidden) {
         executorService.execute(() -> {
             visibilityManager.setAlbumHidden(albumPath, isHidden);
-            // DO NOT call loadAlbums() here to prevent race condition/double load.
         });
     }
 
@@ -92,6 +90,17 @@ public class AlbumsViewModel extends AndroidViewModel {
         Intent scanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
         scanIntent.setData(uri);
         context.sendBroadcast(scanIntent);
+    }
+
+    public void addEmptyAlbum(String albumName, String albumPath) {
+        for (Album album : allAlbums) {
+            if (album.getFolderPath().equals(albumPath)) {
+                return;
+            }
+        }
+        Album newAlbum = new Album(albumName, null, 0, albumPath, Image.MEDIA_TYPE_IMAGE, System.currentTimeMillis() / 1000);
+        allAlbums.add(newAlbum);
+        sortAndPostAlbums();
     }
 
 
@@ -142,15 +151,27 @@ public class AlbumsViewModel extends AndroidViewModel {
 
     public void loadAlbums() {
         executorService.execute(() -> {
-            List<Album> albums = new ArrayList<>();
             Map<String, Album> albumMap = new HashMap<>();
 
-            String securePathPrefix = getApplication().getFilesDir().getAbsolutePath() + File.separator + "secure";
+            File publicPicturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+            if (publicPicturesDir != null && publicPicturesDir.exists() && publicPicturesDir.isDirectory()) {
+                File[] subdirectories = publicPicturesDir.listFiles(File::isDirectory);
+                if (subdirectories != null) {
+                    for (File dir : subdirectories) {
+                        // **BUG FIX**: Ignore hidden folders like .thumbnails
+                        if (dir.getName().startsWith(".")) {
+                            continue;
+                        }
+                        Album album = new Album(dir.getName(), null, 0, dir.getAbsolutePath(), Image.MEDIA_TYPE_IMAGE, dir.lastModified() / 1000);
+                        albumMap.put(dir.getAbsolutePath(), album);
+                    }
+                }
+            }
 
+            String securePathPrefix = getApplication().getFilesDir().getAbsolutePath() + File.separator + "secure";
             String[] projection = {
-                    MediaStore.Files.FileColumns.BUCKET_ID,
-                    MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
                     MediaStore.Files.FileColumns.DATA,
+                    MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
                     MediaStore.Files.FileColumns._ID,
                     MediaStore.Files.FileColumns.MEDIA_TYPE,
                     MediaStore.Files.FileColumns.DATE_ADDED
@@ -168,59 +189,48 @@ public class AlbumsViewModel extends AndroidViewModel {
                     projection, selection, selectionArgs, sortOrder)) {
                 if (cursor != null) {
                     while (cursor.moveToNext()) {
-                        String bucketId = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_ID));
-                        Album album = albumMap.get(bucketId);
+                        String path = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA));
+                        File parentFile = new File(path).getParentFile();
+                        if (parentFile == null || parentFile.getAbsolutePath() == null || parentFile.getName().startsWith(".")) {
+                            continue; // Also ignore media inside hidden folders
+                        }
+
+                        String folderPath = parentFile.getAbsolutePath();
+                        Album album = albumMap.get(folderPath);
+
+                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID));
+                        int mediaType = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE));
+                        Uri coverUri = (mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
+                                ? ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+                                : ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+
                         if (album == null) {
                             String albumName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME));
-                            String path = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA));
-                            long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID));
-                            int mediaType = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE));
                             long dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED));
-
-                            File parentFile = new File(path).getParentFile();
-                            String folderPath;
-
-                            // FIX for Camera/Root Albums (Key Collision): Ensure folderPath is always unique
-                            if (parentFile != null && parentFile.getAbsolutePath() != null && !parentFile.getAbsolutePath().isEmpty()) {
-                                folderPath = parentFile.getAbsolutePath();
-                            } else {
-                                // Use a unique, stable key for root/special albums like Camera.
-                                folderPath = "ROOT_ALBUM_" + bucketId;
-                            }
-
-                            Uri coverUri;
-                            if (mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO) {
-                                coverUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id);
-                            } else {
-                                coverUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
-                            }
-
                             album = new Album(albumName, coverUri, 1, folderPath, mediaType, dateAdded);
-                            albumMap.put(bucketId, album);
-                            albums.add(album);
+                            albumMap.put(folderPath, album);
                         } else {
                             album.incrementImageCount();
+                            if (album.getImageCount() == 1) {
+                                album.setCoverImageUri(coverUri);
+                                album.setCoverMediaType(mediaType);
+                            }
                         }
                     }
                 }
             }
 
-            for (Album album : albums) {
+            List<Album> finalAlbums = new ArrayList<>(albumMap.values());
+
+            for (Album album : finalAlbums) {
                 Uri customCover = albumCoverRepository.getCustomCover(album.getFolderPath());
                 if (customCover != null) {
                     album.setCoverImageUri(customCover);
-                    int customMediaType = albumCoverRepository.getCustomCoverMediaType(album.getFolderPath());
-                    album.setCoverMediaType(customMediaType);
-                    for (Album existingAlbum : allAlbums) {
-                        if (existingAlbum.getFolderPath().equals(album.getFolderPath())) {
-                            album.setCacheBusterId(existingAlbum.getCacheBusterId());
-                            break;
-                        }
-                    }
+                    album.setCoverMediaType(albumCoverRepository.getCustomCoverMediaType(album.getFolderPath()));
                 }
             }
 
-            allAlbums = albums;
+            allAlbums = finalAlbums;
             allAlbumsUnfilteredLiveData.postValue(new ArrayList<>(allAlbums));
             sortAndPostAlbums();
         });

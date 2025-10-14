@@ -53,12 +53,12 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
     private androidx.appcompat.view.ActionMode actionMode;
     private AlbumsViewModel albumsViewModel;
 
-    private final ActivityResultLauncher<IntentSenderRequest> actionResultLauncher =
+    private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher =
             registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
                 if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
-                    Toast.makeText(getContext(), "Item deleted", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Item(s) moved to trash", Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(getContext(), "Failed to delete item", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Failed to move item(s) to trash", Toast.LENGTH_SHORT).show();
                 }
                 viewModel.loadImagesFromAlbum(albumFolderPath);
             });
@@ -186,7 +186,11 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
         }
 
         int itemId = item.getItemId();
-        if (itemId == R.id.action_delete) {
+        if (itemId == R.id.action_share) {
+            shareImages(uris);
+            mode.finish();
+            return true;
+        } else if (itemId == R.id.action_delete) {
             trashMediaItems(uris);
             mode.finish();
         } else if (itemId == R.id.action_set_wallpaper) {
@@ -204,6 +208,20 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
         return true;
     }
 
+    private void shareImages(List<Uri> uris) {
+        if (uris == null || uris.isEmpty()) {
+            return;
+        }
+
+        Intent shareIntent = new Intent();
+        shareIntent.setAction(Intent.ACTION_SEND_MULTIPLE);
+        shareIntent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, new ArrayList<>(uris));
+        shareIntent.setType("*/*");
+        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        startActivity(Intent.createChooser(shareIntent, "Share to..."));
+    }
+
     @Override
     public void onDestroyActionMode(androidx.appcompat.view.ActionMode mode) {
         actionMode = null;
@@ -215,24 +233,31 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 IntentSender intentSender = MediaStore.createTrashRequest(contentResolver, uris, true).getIntentSender();
-                actionResultLauncher.launch(new IntentSenderRequest.Builder(intentSender).build());
+                trashResultLauncher.launch(new IntentSenderRequest.Builder(intentSender).build());
             } else {
-                for (Uri uri : uris) {
-                    contentResolver.delete(uri, null, null);
+                if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+                    for (Uri uri : uris) {
+                        try {
+                            contentResolver.delete(uri, null, null);
+                        } catch (RecoverableSecurityException e) {
+                            IntentSenderRequest request = new IntentSenderRequest.Builder(e.getUserAction().getActionIntent().getIntentSender()).build();
+                            trashResultLauncher.launch(request);
+                            return;
+                        }
+                    }
+                } else {
+                    for (Uri uri : uris) {
+                        contentResolver.delete(uri, null, null);
+                    }
+                    Toast.makeText(getContext(), uris.size() + " item(s) permanently deleted", Toast.LENGTH_SHORT).show();
                 }
                 viewModel.loadImagesFromAlbum(albumFolderPath);
-                Toast.makeText(getContext(), uris.size() + " items moved to trash", Toast.LENGTH_SHORT).show();
-            }
-        } catch (SecurityException e) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e instanceof RecoverableSecurityException) {
-                actionResultLauncher.launch(new IntentSenderRequest.Builder(((RecoverableSecurityException) e).getUserAction().getActionIntent().getIntentSender()).build());
-            } else {
-                Toast.makeText(getContext(), "Error: Permission denied", Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
             Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
+
 
     private void setWallpaper(Image image) {
         if (image.isVideo()) {

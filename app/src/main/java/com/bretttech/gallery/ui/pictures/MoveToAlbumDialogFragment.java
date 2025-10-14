@@ -102,17 +102,15 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
         setupRecyclerView();
 
         albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
-        albumsViewModel.getAlbums().observe(getViewLifecycleOwner(), albums -> {
+        // **BUG FIX**: Observe the unfiltered list to include empty albums
+        albumsViewModel.getAllAlbumsUnfiltered().observe(getViewLifecycleOwner(), albums -> {
             List<Album> filteredAlbums = new ArrayList<>();
             for (Album album : albums) {
-                // Filter albums based on whether we are moving to a secure or public location
                 if (isSecureMove) {
-                    // Only show albums in the app's secure directory
                     if (album.getFolderPath().contains(requireContext().getFilesDir().getAbsolutePath() + "/secure")) {
                         filteredAlbums.add(album);
                     }
                 } else {
-                    // Only show public albums (and implicitly filter secure folders via ViewModel logic)
                     if (!album.getFolderPath().contains(requireContext().getFilesDir().getAbsolutePath() + "/secure")) {
                         filteredAlbums.add(album);
                     }
@@ -122,10 +120,8 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
             albumsRecyclerView.setVisibility(View.VISIBLE);
         });
 
-        if (!isSecureMove) {
-            albumsViewModel.loadAlbums();
-        }
-
+        // Still need to trigger a load to ensure the list is up-to-date
+        albumsViewModel.loadAlbums();
 
         return view;
     }
@@ -140,33 +136,30 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
         }
 
         newAlbumNameEditText.setVisibility(View.VISIBLE);
-        // MODIFIED: Updated hint to mention 'Moved' folder
-        newAlbumNameEditText.setHint("Create new " + (isSecureMove ? "secure " : "public ") + "album... (Leave blank for 'Moved')");
+        newAlbumNameEditText.setHint("Create new " + (isSecureMove ? "secure " : "public ") + "album...");
         createAlbumButton.setVisibility(View.VISIBLE);
         createAlbumButton.setText("Move to New Album");
 
         createAlbumButton.setOnClickListener(v -> {
             String newAlbumName = newAlbumNameEditText.getText().toString().trim();
-
             if (newAlbumName.isEmpty()) {
-                // NEW LOGIC: If input is empty and it's a secure move, use the default "Moved" folder
-                if (isSecureMove) {
-                    startMoveOperation("Moved");
-                } else {
-                    // If it's a public move and no name is provided, prompt the user
-                    Toast.makeText(getContext(), "Please enter a name for the new public album", Toast.LENGTH_SHORT).show();
-                }
+                Toast.makeText(getContext(), "Please enter a name for the new album", Toast.LENGTH_SHORT).show();
             } else {
-                startMoveOperation(newAlbumName);
+                File baseDir = isSecureMove
+                        ? new File(requireContext().getFilesDir(), "secure")
+                        : Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+                File newAlbumPath = new File(baseDir, newAlbumName);
+                startMoveOperation(newAlbumPath.getAbsolutePath());
             }
         });
     }
+
 
     private void setupRecyclerView() {
         albumsAdapter = new AlbumsAdapter(null, new AlbumsAdapter.OnAlbumClickListener() {
             @Override
             public void onAlbumClick(Album album) {
-                startMoveOperation(album.getName());
+                startMoveOperation(album.getFolderPath());
             }
 
             @Override
@@ -178,10 +171,11 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
         albumsRecyclerView.setAdapter(albumsAdapter);
     }
 
-    private void startMoveOperation(String albumName) {
+    private void startMoveOperation(String albumPath) {
+        String albumName = new File(albumPath).getName();
         Toast.makeText(getContext(), "Moving " + urisToMove.size() + " items to " + albumName + "...", Toast.LENGTH_LONG).show();
         executor.execute(() -> {
-            boolean success = moveMedia(albumName);
+            boolean success = moveMedia(albumPath);
             if (isAdded()) {
                 requireActivity().runOnUiThread(() -> {
                     if (success) {
@@ -196,51 +190,35 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
         });
     }
 
-    private boolean moveMedia(String albumName) {
+    private boolean moveMedia(String albumPath) {
         boolean allSuccess = true;
 
-        // Determine destination folder path
-        File destinationDir;
-        if (isSecureMove) {
-            File secureRoot = new File(requireContext().getFilesDir(), "secure");
-            destinationDir = new File(secureRoot, albumName);
-        } else {
-            File publicPicturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
-            destinationDir = new File(publicPicturesDir, albumName);
+        File destinationDir = new File(albumPath);
+        if (!destinationDir.exists() && !destinationDir.mkdirs()) {
+            return false; // Failed to create directory
         }
-
-        if (!destinationDir.exists()) destinationDir.mkdirs(); // This correctly creates the folder only if it doesn't exist
-        if (!destinationDir.exists()) return false; // Failed to create directory
 
         List<Uri> urisToDelete = new ArrayList<>();
 
         for (Uri sourceUri : urisToMove) {
             try {
-                // 1. Get the original filename (since content URI won't hold it directly)
                 String displayName = getFileNameFromUri(sourceUri);
                 if (displayName == null) {
-                    allSuccess = false;
-                    continue;
+                    displayName = "file_" + System.currentTimeMillis(); // Fallback filename
                 }
 
-                // 2. Create the destination file path
                 File destinationFile = new File(destinationDir, displayName);
 
-                // 3. Move/Copy operation
                 if (isMovingOutOfSecure) {
-                    // Move from private to public (File rename operation is safe here)
                     File sourceFile = new File(sourceUri.getPath());
                     if (sourceFile.renameTo(destinationFile)) {
-                        // Scan the new public file
                         AlbumsViewModel.scanFile(requireContext(), Uri.fromFile(destinationFile));
-                        urisToDelete.add(sourceUri); // Mark private URI for removal if needed
                     } else {
                         allSuccess = false;
                     }
                 } else {
-                    // Move from public to secure (Need to copy bytes and use MediaStore delete/trash)
                     copyStream(requireContext().getContentResolver().openInputStream(sourceUri), new FileOutputStream(destinationFile));
-                    urisToDelete.add(sourceUri); // Mark public URI for deletion/trash
+                    urisToDelete.add(sourceUri);
                 }
 
             } catch (Exception e) {
@@ -249,22 +227,19 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
             }
         }
 
-        // 4. Clean up original files (only for public -> private move)
-        if (!isMovingOutOfSecure && allSuccess) {
+        if (!urisToDelete.isEmpty() && allSuccess) {
             try {
                 ContentResolver resolver = requireContext().getContentResolver();
-
                 for (Uri uri : urisToDelete) {
                     resolver.delete(uri, null, null);
                 }
-
             } catch (Exception e) {
+                // This might fail due to scoped storage, but the copy has succeeded.
+                // We don't mark the whole operation as a failure.
                 e.printStackTrace();
-                // Do not mark as failure, as the move to secure folder succeeded
             }
         }
 
-        // We only return true if the move operation (copying/renaming) itself succeeded
         return allSuccess;
     }
 
@@ -287,24 +262,19 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
         return displayName;
     }
 
-    private long copyStream(InputStream input, OutputStream output) throws IOException {
-        long bytesCopied = 0;
+    private void copyStream(InputStream input, OutputStream output) throws IOException {
         byte[] buffer = new byte[8 * 1024];
-        int bytes = input.read(buffer);
-        while (bytes >= 0) {
+        int bytes;
+        while ((bytes = input.read(buffer)) != -1) {
             output.write(buffer, 0, bytes);
-            bytesCopied += bytes;
-            bytes = input.read(buffer);
         }
         input.close();
         output.close();
-        return bytesCopied;
     }
 
     private void notifyCallingFragment(boolean success) {
         Bundle result = new Bundle();
         result.putBoolean(KEY_MOVE_SUCCESS, success);
-        // Pass the URIs back so the calling fragment can remove them from its list/adapter
         result.putParcelableArrayList(KEY_MOVED_URIS, new ArrayList<>(urisToMove));
         getParentFragmentManager().setFragmentResult(REQUEST_KEY, result);
     }
@@ -312,12 +282,8 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // Ensure the ViewModel is loaded to refresh the list in the parent fragment (PicturesFragment/AlbumDetailFragment)
-        if (!isMovingOutOfSecure) {
-            // Need to reload public albums/pictures after deletion/move
-            if (albumsViewModel != null) {
-                albumsViewModel.loadAlbums();
-            }
+        if (albumsViewModel != null) {
+            albumsViewModel.loadAlbums();
         }
     }
 }
