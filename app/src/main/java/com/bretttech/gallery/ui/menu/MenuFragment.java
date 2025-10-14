@@ -1,5 +1,6 @@
 package com.bretttech.gallery.ui.menu;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,6 +10,7 @@ import androidx.annotation.Nullable;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 import com.bretttech.gallery.R;
+import com.bretttech.gallery.SettingsActivity;
 import com.bretttech.gallery.databinding.FragmentMenuBinding;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
@@ -29,8 +31,11 @@ public class MenuFragment extends BottomSheetDialogFragment {
 
         NavController navController = NavHostFragment.findNavController(this);
 
-        // MODIFIED: Removed explicit dismiss() and View.post() calls.
-        // Calling navigate() directly between two <dialog> destinations handles the dismissal/replacement automatically.
+        binding.menuPopup.menuSettings.setOnClickListener(v -> {
+            Intent intent = new Intent(getContext(), SettingsActivity.class);
+            startActivity(intent);
+            dismiss();
+        });
 
         binding.menuPopup.menuTrashBin.setOnClickListener(v -> {
             navController.navigate(R.id.action_navigation_menu_to_trashFragment);
