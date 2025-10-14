@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bretttech.gallery.R;
+import com.bretttech.gallery.SharedViewModel; // NEW IMPORT
 import com.bretttech.gallery.data.AlbumVisibilityManager;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
@@ -26,15 +27,15 @@ public class HiddenAlbumsFragment extends BottomSheetDialogFragment implements H
     private AlbumsViewModel albumsViewModel;
     private HiddenAlbumsAdapter adapter;
     private AlbumVisibilityManager visibilityManager;
+    private SharedViewModel sharedViewModel; // NEW FIELD
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
         visibilityManager = new AlbumVisibilityManager(requireContext());
+        sharedViewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class); // NEW INIT
     }
-
-    // REMOVED: onStart() method content for fixed 50% height cap, replaced by dynamic logic in onViewCreated.
 
     @Nullable
     @Override
@@ -54,20 +55,17 @@ public class HiddenAlbumsFragment extends BottomSheetDialogFragment implements H
         adapter = new HiddenAlbumsAdapter(visibilityManager.getHiddenAlbumPaths(), secureFolderPath, this);
         recyclerView.setAdapter(adapter);
 
-        // MODIFIED: Observe data and then set the dynamic height
         albumsViewModel.getAllAlbumsUnfiltered().observe(getViewLifecycleOwner(), albums -> {
-            List<Album> publicAlbums = filterSecureAlbums(albums, secureFolderPath); // Filter here for accurate count
+            List<Album> publicAlbums = filterSecureAlbums(albums, secureFolderPath);
 
             adapter.setAlbums(albums, visibilityManager.getHiddenAlbumPaths());
 
-            // NEW CALL: Set height based on the count of public albums
             setDynamicSheetHeight(publicAlbums.size());
         });
 
         albumsViewModel.loadAlbums();
     }
 
-    // NEW Helper method to filter out secure albums for accurate count
     private List<Album> filterSecureAlbums(List<Album> allAlbums, String secureFolderPath) {
         List<Album> publicAlbums = new ArrayList<>();
         for (Album album : allAlbums) {
@@ -78,7 +76,6 @@ public class HiddenAlbumsFragment extends BottomSheetDialogFragment implements H
         return publicAlbums;
     }
 
-    // NEW: Method to apply the dynamic height logic
     private void setDynamicSheetHeight(int albumCount) {
         if (getActivity() == null || getDialog() == null) return;
 
@@ -86,14 +83,13 @@ public class HiddenAlbumsFragment extends BottomSheetDialogFragment implements H
         getActivity().getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
         int height = displayMetrics.heightPixels;
 
-        // Calculate height percentage based on count
         int heightPercentage;
         if (albumCount >= 5) {
-            heightPercentage = 50; // Max 50% for 5+ albums
-        } else if (albumCount >= 2) {
-            heightPercentage = 30; // 30% for 1-4 albums
+            heightPercentage = 50;
+        } else if (albumCount >= 1) {
+            heightPercentage = 25;
         } else {
-            heightPercentage = 15; // Smallest percentage for 0 albums/empty state
+            heightPercentage = 15;
         }
 
         int targetHeight = (int) (height * (heightPercentage / 100.0));
@@ -101,10 +97,8 @@ public class HiddenAlbumsFragment extends BottomSheetDialogFragment implements H
         if (getDialog() instanceof BottomSheetDialog) {
             BottomSheetDialog dialog = (BottomSheetDialog) getDialog();
 
-            // Get the container of the bottom sheet
             FrameLayout bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
             if (bottomSheet != null) {
-                // Set the fixed target height
                 ViewGroup.LayoutParams layoutParams = bottomSheet.getLayoutParams();
                 if (layoutParams == null) {
                     layoutParams = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, targetHeight);
@@ -119,7 +113,10 @@ public class HiddenAlbumsFragment extends BottomSheetDialogFragment implements H
 
 
     @Override
-    public void onAlbumToggled(String albumPath, boolean isHidden) {
-        albumsViewModel.setAlbumVisibility(albumPath, isHidden);
+    public void onAlbumToggled(Album album, boolean isHidden, int position) {
+        albumsViewModel.setAlbumVisibility(album.getFolderPath(), isHidden);
+
+        // NEW LINE: Request a live refresh on the main Albums fragment (Fixes non-live update)
+        sharedViewModel.requestRefresh();
     }
 }

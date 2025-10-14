@@ -28,6 +28,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bretttech.gallery.R;
+import com.bretttech.gallery.SharedViewModel; // NEW IMPORT
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
 
@@ -46,6 +47,7 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     private AlbumsAdapter albumsAdapter;
     private androidx.appcompat.view.ActionMode actionMode;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private SharedViewModel sharedViewModel; // NEW FIELD
 
 
     private final ActivityResultLauncher<Intent> changeCoverLauncher =
@@ -67,6 +69,8 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
+
+        sharedViewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class); // NEW INIT
     }
 
     @Nullable
@@ -97,23 +101,19 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
         albumsViewModel = new ViewModelProvider(this).get(AlbumsViewModel.class);
         albumsViewModel.getAlbums().observe(getViewLifecycleOwner(), albums -> albumsAdapter.setAlbums(albums));
 
-        return root;
-    }
+        // NEW: Observe shared refresh event (Fixes non-live update)
+        sharedViewModel.getRefreshRequest().observe(getViewLifecycleOwner(), event -> {
+            // Only handle the event once
+            if (event.getContentIfNotHandled() != null) {
+                // If we are currently showing the album list and not in CAB mode, force refresh
+                if (actionMode == null) {
+                    albumsViewModel.loadAlbums();
+                }
+            }
+        });
 
-    private void toggleSelection(Album album) {
-        albumsAdapter.toggleSelection(album);
-        int selectionCount = albumsAdapter.getSelectedAlbums().size();
-        if (selectionCount > 0) {
-            if (actionMode == null) {
-                actionMode = ((AppCompatActivity) requireActivity()).startSupportActionMode(this);
-            }
-            actionMode.setTitle(selectionCount + " selected");
-            actionMode.invalidate();
-        } else {
-            if (actionMode != null) {
-                actionMode.finish();
-            }
-        }
+
+        return root;
     }
 
     @Override
@@ -148,6 +148,22 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
         }
         item.setChecked(true);
         return true;
+    }
+
+    private void toggleSelection(Album album) {
+        albumsAdapter.toggleSelection(album);
+        int selectionCount = albumsAdapter.getSelectedAlbums().size();
+        if (selectionCount > 0) {
+            if (actionMode == null) {
+                actionMode = ((AppCompatActivity) requireActivity()).startSupportActionMode(this);
+            }
+            actionMode.setTitle(selectionCount + " selected");
+            actionMode.invalidate();
+        } else {
+            if (actionMode != null) {
+                actionMode.finish();
+            }
+        }
     }
 
     private void openAlbum(Album album) {

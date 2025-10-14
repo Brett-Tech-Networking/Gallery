@@ -27,7 +27,8 @@ public class HiddenAlbumsAdapter extends RecyclerView.Adapter<HiddenAlbumsAdapte
     private final String secureFolderPath;
 
     public interface OnAlbumToggleListener {
-        void onAlbumToggled(String albumPath, boolean isHidden);
+        // MODIFIED: Pass Album object and position
+        void onAlbumToggled(Album album, boolean isHidden, int position);
     }
 
     public HiddenAlbumsAdapter(Set<String> hiddenPaths, String secureFolderPath, OnAlbumToggleListener listener) {
@@ -47,13 +48,14 @@ public class HiddenAlbumsAdapter extends RecyclerView.Adapter<HiddenAlbumsAdapte
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Album album = albums.get(position);
         holder.albumName.setText(album.getName());
+
+        // Ensure state is correctly read
         boolean isHidden = hiddenPaths.contains(album.getFolderPath());
         holder.hideSwitch.setChecked(isHidden);
 
-        // NEW: Load album cover using Glide
+        // Load album cover using Glide
         Uri coverUri = album.getCoverImageUri();
         if (coverUri != null) {
-            // Use cacheBusterId in the signature to force Glide to reload when cover changes
             ObjectKey cacheSignature = new ObjectKey(album.getFolderPath() + "_" + album.getCacheBusterId());
 
             Glide.with(holder.albumCover.getContext())
@@ -67,27 +69,23 @@ public class HiddenAlbumsAdapter extends RecyclerView.Adapter<HiddenAlbumsAdapte
             holder.albumCover.setImageResource(R.drawable.ic_album_placeholder);
         }
 
-        // NEW: Show video indicator if the cover is a video
         holder.videoIndicator.setVisibility(album.isCoverVideo() ? View.VISIBLE : View.GONE);
-        // END NEW: Load album cover using Glide
-
-
-        // Set initial switch text based on the album's current state (Hidden or Visible)
         holder.hideSwitch.setText(isHidden ? R.string.status_hidden : R.string.status_visible);
 
         // Remove previous listener to prevent unintended calls
         holder.hideSwitch.setOnCheckedChangeListener(null);
 
         holder.hideSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            listener.onAlbumToggled(album.getFolderPath(), isChecked);
-            // Optimistically update the local set for immediate UI consistency
+            // UPDATED: Pass the album object and position to the listener.
+            listener.onAlbumToggled(album, isChecked, position);
+
+            // FIX for Instant Revert: Optimistically update the internal set and the UI text
+            // This holds the visual state until the full LiveData reload occurs.
             if (isChecked) {
                 hiddenPaths.add(album.getFolderPath());
-                // Immediately update text for visual feedback
                 buttonView.setText(R.string.status_hidden);
             } else {
                 hiddenPaths.remove(album.getFolderPath());
-                // Immediately update text for visual feedback
                 buttonView.setText(R.string.status_visible);
             }
         });
