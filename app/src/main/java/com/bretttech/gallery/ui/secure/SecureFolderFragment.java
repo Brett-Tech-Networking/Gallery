@@ -89,23 +89,18 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
             albumsAdapter.setAlbums(albums);
         });
 
-        // Enable options menu for the toolbar
         setHasOptionsMenu(true);
-
         authenticate();
 
         return binding.getRoot();
     }
 
-    // NEW: Add onCreateOptionsMenu to inflate the settings icon
     @Override
     public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
-        // Inflate the new settings menu
         inflater.inflate(R.menu.secure_folder_settings_menu, menu);
         super.onCreateOptionsMenu(menu, inflater);
     }
 
-    // NEW: Handle the settings icon click
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == R.id.action_secure_settings) {
@@ -119,41 +114,47 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
     private void authenticate() {
         SharedPreferences prefs = requireActivity().getSharedPreferences("secure_folder_prefs", Context.MODE_PRIVATE);
 
-        // Check if biometrics is disabled by the user in settings
-        boolean biometricsEnabled = prefs.getBoolean("biometrics_enabled", true); // Default to true if not set
-
-        // If PIN is already set, or biometrics is disabled, go directly to PIN entry
-        if (prefs.contains("pin_hash") || !biometricsEnabled) {
-            pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
+        // 1. If no PIN is set up at all, force setup first.
+        if (!prefs.contains("pin_hash")) {
+            pinSetupLauncher.launch(new Intent(getContext(), PinSetupActivity.class));
             return;
         }
 
-        new BiometricAuthManager((AppCompatActivity) requireActivity(), new BiometricAuthManager.BiometricAuthListener() {
-            @Override
-            public void onAuthSuccess() {
-                Toast.makeText(getContext(), "Authentication succeeded!", Toast.LENGTH_SHORT).show();
-                loadContent();
-            }
+        // 2. Check if user has biometrics enabled in app settings.
+        boolean useBiometrics = prefs.getBoolean("biometrics_enabled", true);
 
-            @Override
-            public void onAuthError(String errString) {
-                // If biometric fails/is canceled, fall back to PIN entry
-                pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
-            }
+        if (useBiometrics) {
+            // 3. Attempt biometric authentication. Fall back to PIN on error/failure.
+            new BiometricAuthManager((AppCompatActivity) requireActivity(), new BiometricAuthManager.BiometricAuthListener() {
+                @Override
+                public void onAuthSuccess() {
+                    loadContent();
+                }
 
-            @Override
-            public void onAuthFailed() {
-                // Biometric failed (e.g., wrong fingerprint), nothing to do but prompt the user to try again/use PIN
-                Toast.makeText(getContext(), "Authentication failed", Toast.LENGTH_SHORT).show();
-            }
+                @Override
+                public void onAuthError(String errString) {
+                    // Biometric error (e.g., canceled), fall back to PIN entry.
+                    pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
+                }
 
-            @Override
-            public void onNoSecurityEnrolled() {
-                // No biometrics available, force PIN setup
-                pinSetupLauncher.launch(new Intent(getContext(), PinSetupActivity.class));
-            }
-        }).authenticate();
+                @Override
+                public void onAuthFailed() {
+                    // Explicit failure (e.g., wrong fingerprint), let the user try again or cancel.
+                    Toast.makeText(getContext(), "Authentication failed", Toast.LENGTH_SHORT).show();
+                }
+
+                @Override
+                public void onNoSecurityEnrolled() {
+                    // No biometrics on device, go straight to PIN entry.
+                    pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
+                }
+            }).authenticate();
+        } else {
+            // 4. Biometrics are disabled in settings, so go directly to PIN entry.
+            pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
+        }
     }
+
 
     private void loadContent() {
         secureFolderViewModel.loadAlbumsFromSecureFolder();

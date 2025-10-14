@@ -13,20 +13,22 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="start|center_vertical"
+        android:layout_marginTop="60dp"
         android:paddingStart="16dp"
         android:paddingTop="12dp"
         android:paddingEnd="16dp"
         android:paddingBottom="12dp"
+        android:visibility="visible"
         android:text="@string/setting_change_pin"
-        android:textSize="16sp"
-        android:textColor="?android:attr/textColorPrimary"/>
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="16sp" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="?android:attr/listDivider"
         android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"/>
+        android:layout_marginEnd="16dp"
+        android:background="?android:attr/listDivider" />
 
     <androidx.appcompat.widget.SwitchCompat
         android:id="@+id/switch_biometrics"
@@ -38,8 +40,8 @@
         android:paddingTop="12dp"
         android:paddingBottom="12dp"
         android:text="@string/setting_biometrics_toggle"
-        android:textSize="16sp"
-        android:textColor="?android:attr/textColorPrimary"/>
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="16sp" />
 
     <TextView
         android:layout_width="match_parent"
@@ -48,8 +50,7 @@
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="8dp"
         android:text="@string/setting_biometrics_subtitle"
-        android:textSize="14sp"
-        android:textColor="?android:attr/textColorSecondary"/>
-
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="14sp" />
 
 </LinearLayout>
