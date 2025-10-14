@@ -52,9 +52,12 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == AppCompatActivity.RESULT_OK && result.getData() != null) {
                     Uri newCoverUri = result.getData().getData();
+                    // MODIFIED: Retrieve media type from result Intent
+                    int mediaType = result.getData().getIntExtra(ChangeCoverActivity.RESULT_COVER_MEDIA_TYPE, Image.MEDIA_TYPE_IMAGE);
                     if (newCoverUri != null && !albumsAdapter.getSelectedAlbums().isEmpty()) {
                         String albumPath = albumsAdapter.getSelectedAlbums().get(0).getFolderPath();
-                        albumsViewModel.setAlbumCover(albumPath, newCoverUri);
+                        // MODIFIED: Pass the media type to the ViewModel
+                        albumsViewModel.setAlbumCover(albumPath, newCoverUri, mediaType);
                         Toast.makeText(getContext(), "Cover photo changed!", Toast.LENGTH_SHORT).show();
                     }
                 }

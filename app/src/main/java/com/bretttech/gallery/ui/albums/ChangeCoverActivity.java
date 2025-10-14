@@ -15,6 +15,7 @@ public class ChangeCoverActivity extends AppCompatActivity {
 
     public static final String EXTRA_ALBUM_PATH = "album_path";
     public static final String RESULT_COVER_URI = "cover_uri";
+    public static final String RESULT_COVER_MEDIA_TYPE = "cover_media_type"; // NEW
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +42,8 @@ public class ChangeCoverActivity extends AppCompatActivity {
             PicturesAdapter adapter = new PicturesAdapter(image -> {
                 Intent resultIntent = new Intent();
                 resultIntent.setData(image.getUri());
+                // MODIFIED: Add media type to the result Intent
+                resultIntent.putExtra(RESULT_COVER_MEDIA_TYPE, image.getMediaType());
                 setResult(RESULT_OK, resultIntent);
                 finish();
             }, null);

@@ -54,6 +54,19 @@ public class AlbumsViewModel extends AndroidViewModel {
         sortAndPostAlbums();
     }
 
+    // MODIFIED: Added mediaType parameter and cache buster logic
+    public void setAlbumCover(String albumPath, Uri coverUri, int mediaType) {
+        // Find the album in the current list and manually update the cache buster for immediate visual update
+        for (Album album : allAlbums) {
+            if (album.getFolderPath().equals(albumPath)) {
+                album.setCacheBusterId(System.currentTimeMillis()); // NEW: Set unique cache buster ID
+                break;
+            }
+        }
+        albumCoverRepository.setCustomCover(albumPath, coverUri, mediaType);
+        loadAlbums();
+    }
+
     public void removeCustomCover(String albumPath) {
         albumCoverRepository.removeCustomCover(albumPath);
     }
@@ -165,16 +178,20 @@ public class AlbumsViewModel extends AndroidViewModel {
                 Uri customCover = albumCoverRepository.getCustomCover(album.getFolderPath());
                 if (customCover != null) {
                     album.setCoverImageUri(customCover);
+                    int customMediaType = albumCoverRepository.getCustomCoverMediaType(album.getFolderPath());
+                    album.setCoverMediaType(customMediaType);
+                    // NEW: Retrieve the latest cache buster ID from an existing album object if available
+                    for (Album existingAlbum : allAlbums) {
+                        if (existingAlbum.getFolderPath().equals(album.getFolderPath())) {
+                            album.setCacheBusterId(existingAlbum.getCacheBusterId());
+                            break;
+                        }
+                    }
                 }
             }
 
             allAlbums = albums;
             sortAndPostAlbums();
         });
-    }
-
-    public void setAlbumCover(String albumPath, Uri coverUri) {
-        albumCoverRepository.setCustomCover(albumPath, coverUri);
-        loadAlbums();
     }
 }
