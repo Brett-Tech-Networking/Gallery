@@ -266,7 +266,9 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     private void showDeleteConfirmation(final List<Album> albumsToDelete, final androidx.appcompat.view.ActionMode mode) {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Delete " + albumsToDelete.size() + " Album(s)?")
-                .setMessage("This will move all photos inside to the trash and permanently delete the album folder. This action cannot be undone.")
+               // .setMessage("This will move all photos inside to the trash and permanently delete the album folder. This action cannot be undone.")
+                .setMessage("This will delete all photos inside and permanently delete the album folder. This action cannot be undone.")
+
                 .setPositiveButton("Delete", (dialog, which) -> {
                     startAlbumDeletionProcess(albumsToDelete);
                     if (mode != null) {
@@ -332,7 +334,7 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
                 }
             }
         } catch (Exception e) {
-            Log.e("AlbumsFragment", "Error querying for media in album.", e);
+            Log.e("AlbumsFragment", "Error querying for media in album: " + contentUri, e);
         }
         return uris;
     }
