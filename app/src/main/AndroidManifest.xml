@@ -77,6 +77,12 @@
             android:exported="false"
             android:theme="@style/Theme.Gallery" />
 
+        <activity
+            android:name=".ui.secure.SecureSettingsActivity"
+            android:exported="false"
+            android:label="@string/title_secure_settings"
+            android:theme="@style/Theme.Gallery" />
+
 
     </application>
 

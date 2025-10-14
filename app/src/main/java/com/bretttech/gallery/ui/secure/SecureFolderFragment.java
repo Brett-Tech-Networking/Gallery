@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -88,14 +89,41 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
             albumsAdapter.setAlbums(albums);
         });
 
+        // Enable options menu for the toolbar
+        setHasOptionsMenu(true);
+
         authenticate();
 
         return binding.getRoot();
     }
 
+    // NEW: Add onCreateOptionsMenu to inflate the settings icon
+    @Override
+    public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
+        // Inflate the new settings menu
+        inflater.inflate(R.menu.secure_folder_settings_menu, menu);
+        super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    // NEW: Handle the settings icon click
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.action_secure_settings) {
+            Intent intent = new Intent(getContext(), SecureSettingsActivity.class);
+            startActivity(intent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     private void authenticate() {
         SharedPreferences prefs = requireActivity().getSharedPreferences("secure_folder_prefs", Context.MODE_PRIVATE);
-        if (prefs.contains("pin_hash")) {
+
+        // Check if biometrics is disabled by the user in settings
+        boolean biometricsEnabled = prefs.getBoolean("biometrics_enabled", true); // Default to true if not set
+
+        // If PIN is already set, or biometrics is disabled, go directly to PIN entry
+        if (prefs.contains("pin_hash") || !biometricsEnabled) {
             pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
             return;
         }
@@ -109,17 +137,19 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
 
             @Override
             public void onAuthError(String errString) {
-                Toast.makeText(getContext(), errString, Toast.LENGTH_SHORT).show();
-                navController.popBackStack();
+                // If biometric fails/is canceled, fall back to PIN entry
+                pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
             }
 
             @Override
             public void onAuthFailed() {
+                // Biometric failed (e.g., wrong fingerprint), nothing to do but prompt the user to try again/use PIN
                 Toast.makeText(getContext(), "Authentication failed", Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onNoSecurityEnrolled() {
+                // No biometrics available, force PIN setup
                 pinSetupLauncher.launch(new Intent(getContext(), PinSetupActivity.class));
             }
         }).authenticate();

@@ -5,8 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:paddingTop="16dp"
-    android:paddingBottom="16dp"
-    tools:context=".ui.albums.HiddenAlbumsFragment">
+    android:paddingBottom="0dp"  tools:context=".ui.albums.HiddenAlbumsFragment">
 
     <TextView
         android:id="@+id/sheet_title"
@@ -27,7 +26,9 @@
         android:layout_height="wrap_content"
         android:nestedScrollingEnabled="true"
         android:layout_marginTop="8dp"
+        android:paddingBottom="72dp"  android:clipToPadding="false"
         app:layout_constraintTop_toBottomOf="@id/sheet_title"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        /> </androidx.constraintlayout.widget.ConstraintLayout>
+        />
+</androidx.constraintlayout.widget.ConstraintLayout>

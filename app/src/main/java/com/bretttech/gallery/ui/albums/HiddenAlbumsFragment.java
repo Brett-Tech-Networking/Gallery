@@ -12,7 +12,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bretttech.gallery.R;
-import com.bretttech.gallery.SharedViewModel; // NEW IMPORT
+import com.bretttech.gallery.SharedViewModel; // REQUIRED IMPORT
 import com.bretttech.gallery.data.AlbumVisibilityManager;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
@@ -27,14 +27,14 @@ public class HiddenAlbumsFragment extends BottomSheetDialogFragment implements H
     private AlbumsViewModel albumsViewModel;
     private HiddenAlbumsAdapter adapter;
     private AlbumVisibilityManager visibilityManager;
-    private SharedViewModel sharedViewModel; // NEW FIELD
+    private SharedViewModel sharedViewModel;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
         visibilityManager = new AlbumVisibilityManager(requireContext());
-        sharedViewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class); // NEW INIT
+        sharedViewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class); // INIT SharedViewModel
     }
 
     @Nullable
@@ -114,9 +114,10 @@ public class HiddenAlbumsFragment extends BottomSheetDialogFragment implements H
 
     @Override
     public void onAlbumToggled(Album album, boolean isHidden, int position) {
+        // Step 1: Trigger synchronous persistence on a background thread.
         albumsViewModel.setAlbumVisibility(album.getFolderPath(), isHidden);
 
-        // NEW LINE: Request a live refresh on the main Albums fragment (Fixes non-live update)
+        // Step 2: Trigger the live refresh on the main Albums fragment immediately (User's requirement).
         sharedViewModel.requestRefresh();
     }
 }

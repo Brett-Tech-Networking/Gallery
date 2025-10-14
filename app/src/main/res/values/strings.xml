@@ -36,4 +36,10 @@
     <string name="enter_pin_title">Enter PIN</string>
     <string name="enter_your_pin">Enter your 4-digit PIN</string>
     <string name="wrong_pin">Wrong PIN. Please try again.</string>
+
+    <string name="action_settings">Settings</string>
+    <string name="title_secure_settings">Secure Folder Settings</string>
+    <string name="setting_change_pin">Change PIN</string>
+    <string name="setting_biometrics_toggle">Enable Biometric Authentication</string>
+    <string name="setting_biometrics_subtitle">Use fingerprint or face unlock to access the Secure Folder.</string>
 </resources>

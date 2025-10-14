@@ -31,11 +31,10 @@ import java.util.concurrent.Executors;
 public class AlbumsViewModel extends AndroidViewModel {
 
     private final MutableLiveData<List<Album>> albumsLiveData = new MutableLiveData<>();
-    // NEW: LiveData to hold all public albums (for the "Hide Albums" screen)
     private final MutableLiveData<List<Album>> allAlbumsUnfilteredLiveData = new MutableLiveData<>();
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final AlbumCoverRepository albumCoverRepository;
-    private final AlbumVisibilityManager visibilityManager; // NEW FIELD
+    private final AlbumVisibilityManager visibilityManager;
 
     private List<Album> allAlbums = new ArrayList<>();
     private SortOrder currentSortOrder = SortOrder.NAME_ASC;
@@ -47,7 +46,7 @@ public class AlbumsViewModel extends AndroidViewModel {
     public AlbumsViewModel(@NonNull Application application) {
         super(application);
         albumCoverRepository = new AlbumCoverRepository(application.getApplicationContext());
-        visibilityManager = new AlbumVisibilityManager(application.getApplicationContext()); // NEW INIT
+        visibilityManager = new AlbumVisibilityManager(application.getApplicationContext());
         loadAlbums();
     }
 
@@ -55,15 +54,16 @@ public class AlbumsViewModel extends AndroidViewModel {
         return albumsLiveData;
     }
 
-    public LiveData<List<Album>> getAllAlbumsUnfiltered() { // NEW GETTER for HideAlbumsFragment
+    public LiveData<List<Album>> getAllAlbumsUnfiltered() {
         return allAlbumsUnfilteredLiveData;
     }
 
-    // NEW: Method to update album visibility
+    // NOTE: This relies on the SharedViewModel's refresh signal to immediately call loadAlbums()
+    // after the visibility state is saved synchronously in AlbumVisibilityManager.
     public void setAlbumVisibility(String albumPath, boolean isHidden) {
         executorService.execute(() -> {
             visibilityManager.setAlbumHidden(albumPath, isHidden);
-            loadAlbums(); // Reload all albums to update both LiveData objects
+            // DO NOT call loadAlbums() here to prevent race condition/double load.
         });
     }
 
@@ -72,12 +72,10 @@ public class AlbumsViewModel extends AndroidViewModel {
         sortAndPostAlbums();
     }
 
-    // MODIFIED: Added mediaType parameter and cache buster logic
     public void setAlbumCover(String albumPath, Uri coverUri, int mediaType) {
-        // Find the album in the current list and manually update the cache buster for immediate visual update
         for (Album album : allAlbums) {
             if (album.getFolderPath().equals(albumPath)) {
-                album.setCacheBusterId(System.currentTimeMillis()); // NEW: Set unique cache buster ID
+                album.setCacheBusterId(System.currentTimeMillis());
                 break;
             }
         }
@@ -135,7 +133,6 @@ public class AlbumsViewModel extends AndroidViewModel {
             Comparator<Album> combinedComparator = primaryComparator.thenComparing(secondaryComparator);
             Collections.sort(sortedList, combinedComparator);
 
-            // NEW: Filter out hidden albums before posting to the main LiveData
             final Set<String> hiddenPaths = visibilityManager.getHiddenAlbumPaths();
             sortedList.removeIf(album -> hiddenPaths.contains(album.getFolderPath()));
 
@@ -158,7 +155,6 @@ public class AlbumsViewModel extends AndroidViewModel {
                     MediaStore.Files.FileColumns.MEDIA_TYPE,
                     MediaStore.Files.FileColumns.DATE_ADDED
             };
-            // Ensure we are only loading PUBLIC albums here
             String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?) AND " + MediaStore.Files.FileColumns.DATA + " NOT LIKE ?";
             String[] selectionArgs = {
                     String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE),
@@ -182,7 +178,16 @@ public class AlbumsViewModel extends AndroidViewModel {
                             long dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED));
 
                             File parentFile = new File(path).getParentFile();
-                            String folderPath = parentFile != null ? parentFile.getAbsolutePath() : "";
+                            String folderPath;
+
+                            // FIX for Camera/Root Albums (Key Collision): Ensure folderPath is always unique
+                            if (parentFile != null && parentFile.getAbsolutePath() != null && !parentFile.getAbsolutePath().isEmpty()) {
+                                folderPath = parentFile.getAbsolutePath();
+                            } else {
+                                // Use a unique, stable key for root/special albums like Camera.
+                                folderPath = "ROOT_ALBUM_" + bucketId;
+                            }
+
                             Uri coverUri;
                             if (mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO) {
                                 coverUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id);
@@ -206,7 +211,6 @@ public class AlbumsViewModel extends AndroidViewModel {
                     album.setCoverImageUri(customCover);
                     int customMediaType = albumCoverRepository.getCustomCoverMediaType(album.getFolderPath());
                     album.setCoverMediaType(customMediaType);
-                    // NEW: Retrieve the latest cache buster ID from an existing album object if available
                     for (Album existingAlbum : allAlbums) {
                         if (existingAlbum.getFolderPath().equals(album.getFolderPath())) {
                             album.setCacheBusterId(existingAlbum.getCacheBusterId());
@@ -217,9 +221,7 @@ public class AlbumsViewModel extends AndroidViewModel {
             }
 
             allAlbums = albums;
-            // Post the unfiltered list first
             allAlbumsUnfilteredLiveData.postValue(new ArrayList<>(allAlbums));
-            // Then sort and apply visibility filter for the main AlbumsFragment
             sortAndPostAlbums();
         });
     }
