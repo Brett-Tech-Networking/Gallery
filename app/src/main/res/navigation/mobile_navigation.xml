@@ -40,6 +40,9 @@
         <action
             android:id="@+id/action_navigation_menu_to_secureFolderFragment"
             app:destination="@id/secureFolderFragment" />
+        <action
+            android:id="@+id/action_navigation_menu_to_hiddenAlbumsFragment"
+            app:destination="@id/hiddenAlbumsFragment" />
     </dialog>
 
     <fragment
@@ -63,4 +66,10 @@
         android:name="com.bretttech.gallery.ui.secure.SecureAlbumDetailFragment"
         android:label="Secure Album"
         tools:layout="@layout/fragment_album_detail" />
+
+    <fragment
+        android:id="@+id/hiddenAlbumsFragment"
+        android:name="com.bretttech.gallery.ui.albums.HiddenAlbumsFragment"
+        android:label="@string/title_hide_albums"
+        tools:layout="@layout/fragment_hidden_albums" />
 </navigation>

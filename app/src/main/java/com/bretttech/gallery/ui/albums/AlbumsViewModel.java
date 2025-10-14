@@ -14,6 +14,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.bretttech.gallery.data.AlbumCoverRepository;
+import com.bretttech.gallery.data.AlbumVisibilityManager;
 import com.bretttech.gallery.ui.pictures.Image;
 
 import java.io.File;
@@ -23,14 +24,18 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class AlbumsViewModel extends AndroidViewModel {
 
     private final MutableLiveData<List<Album>> albumsLiveData = new MutableLiveData<>();
+    // NEW: LiveData to hold all public albums (for the "Hide Albums" screen)
+    private final MutableLiveData<List<Album>> allAlbumsUnfilteredLiveData = new MutableLiveData<>();
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final AlbumCoverRepository albumCoverRepository;
+    private final AlbumVisibilityManager visibilityManager; // NEW FIELD
 
     private List<Album> allAlbums = new ArrayList<>();
     private SortOrder currentSortOrder = SortOrder.NAME_ASC;
@@ -42,11 +47,24 @@ public class AlbumsViewModel extends AndroidViewModel {
     public AlbumsViewModel(@NonNull Application application) {
         super(application);
         albumCoverRepository = new AlbumCoverRepository(application.getApplicationContext());
+        visibilityManager = new AlbumVisibilityManager(application.getApplicationContext()); // NEW INIT
         loadAlbums();
     }
 
     public LiveData<List<Album>> getAlbums() {
         return albumsLiveData;
+    }
+
+    public LiveData<List<Album>> getAllAlbumsUnfiltered() { // NEW GETTER for HideAlbumsFragment
+        return allAlbumsUnfilteredLiveData;
+    }
+
+    // NEW: Method to update album visibility
+    public void setAlbumVisibility(String albumPath, boolean isHidden) {
+        executorService.execute(() -> {
+            visibilityManager.setAlbumHidden(albumPath, isHidden);
+            loadAlbums(); // Reload all albums to update both LiveData objects
+        });
     }
 
     public void sortAlbums(SortOrder sortOrder) {
@@ -116,6 +134,11 @@ public class AlbumsViewModel extends AndroidViewModel {
 
             Comparator<Album> combinedComparator = primaryComparator.thenComparing(secondaryComparator);
             Collections.sort(sortedList, combinedComparator);
+
+            // NEW: Filter out hidden albums before posting to the main LiveData
+            final Set<String> hiddenPaths = visibilityManager.getHiddenAlbumPaths();
+            sortedList.removeIf(album -> hiddenPaths.contains(album.getFolderPath()));
+
             albumsLiveData.postValue(sortedList);
         });
     }
@@ -125,6 +148,8 @@ public class AlbumsViewModel extends AndroidViewModel {
             List<Album> albums = new ArrayList<>();
             Map<String, Album> albumMap = new HashMap<>();
 
+            String securePathPrefix = getApplication().getFilesDir().getAbsolutePath() + File.separator + "secure";
+
             String[] projection = {
                     MediaStore.Files.FileColumns.BUCKET_ID,
                     MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
@@ -133,11 +158,12 @@ public class AlbumsViewModel extends AndroidViewModel {
                     MediaStore.Files.FileColumns.MEDIA_TYPE,
                     MediaStore.Files.FileColumns.DATE_ADDED
             };
+            // Ensure we are only loading PUBLIC albums here
             String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?) AND " + MediaStore.Files.FileColumns.DATA + " NOT LIKE ?";
             String[] selectionArgs = {
                     String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE),
                     String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO),
-                    "%" + getApplication().getFilesDir().getAbsolutePath() + "/secure%"
+                    "%" + securePathPrefix + "%"
             };
             String sortOrder = MediaStore.Files.FileColumns.DATE_ADDED + " DESC";
 
@@ -191,6 +217,9 @@ public class AlbumsViewModel extends AndroidViewModel {
             }
 
             allAlbums = albums;
+            // Post the unfiltered list first
+            allAlbumsUnfilteredLiveData.postValue(new ArrayList<>(allAlbums));
+            // Then sort and apply visibility filter for the main AlbumsFragment
             sortAndPostAlbums();
         });
     }

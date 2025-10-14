@@ -23,6 +23,10 @@
     <string name="delete_fail">Failed to move items to trash</string>
     <string name="title_secure_folder">Secure Folder</string>
     <string name="move_to_secure_folder">Move to Secure Folder</string>
+    <string name="title_hide_albums">Hide Albums</string>
+
+    <string name="status_hidden">Hidden</string>
+    <string name="status_visible">Visible</string>
 
     <string name="setup_pin_title">Set Up PIN</string>
     <string name="enter_new_pin">Enter a new 4-digit PIN</string>

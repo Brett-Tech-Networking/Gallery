@@ -35,6 +35,12 @@ public class MenuFragment extends BottomSheetDialogFragment {
             dismiss(); // Dismiss the bottom sheet
             NavHostFragment.findNavController(this).navigate(R.id.action_navigation_menu_to_secureFolderFragment);
         });
+
+        // NEW LISTENER: Navigate to the Hide Albums fragment
+        binding.menuPopup.menuHideAlbums.setOnClickListener(v -> {
+            dismiss();
+            NavHostFragment.findNavController(this).navigate(R.id.action_navigation_menu_to_hiddenAlbumsFragment);
+        });
     }
 
     @Override
