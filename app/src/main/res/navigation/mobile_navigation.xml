@@ -42,8 +42,8 @@
             app:destination="@id/secureFolderFragment" />
         <action
             android:id="@+id/action_navigation_menu_to_hiddenAlbumsFragment"
-            app:destination="@id/hiddenAlbumsFragment" />
-    </dialog>
+            app:destination="@id/hiddenAlbumsFragment"
+            app:popUpTo="@id/navigation_menu"   app:popUpToInclusive="true" />    </dialog>
 
     <fragment
         android:id="@+id/trashFragment"
