@@ -67,7 +67,7 @@
         android:label="Secure Album"
         tools:layout="@layout/fragment_album_detail" />
 
-    <fragment
+    <dialog
         android:id="@+id/hiddenAlbumsFragment"
         android:name="com.bretttech.gallery.ui.albums.HiddenAlbumsFragment"
         android:label="@string/title_hide_albums"

@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.databinding.FragmentMenuBinding;
@@ -26,20 +27,21 @@ public class MenuFragment extends BottomSheetDialogFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        NavController navController = NavHostFragment.findNavController(this);
+
+        // MODIFIED: Removed explicit dismiss() and View.post() calls.
+        // Calling navigate() directly between two <dialog> destinations handles the dismissal/replacement automatically.
+
         binding.menuPopup.menuTrashBin.setOnClickListener(v -> {
-            dismiss(); // Dismiss the bottom sheet
-            NavHostFragment.findNavController(this).navigate(R.id.action_navigation_menu_to_trashFragment);
+            navController.navigate(R.id.action_navigation_menu_to_trashFragment);
         });
 
         binding.menuPopup.menuSecureFolder.setOnClickListener(v -> {
-            dismiss(); // Dismiss the bottom sheet
-            NavHostFragment.findNavController(this).navigate(R.id.action_navigation_menu_to_secureFolderFragment);
+            navController.navigate(R.id.action_navigation_menu_to_secureFolderFragment);
         });
 
-        // NEW LISTENER: Navigate to the Hide Albums fragment
         binding.menuPopup.menuHideAlbums.setOnClickListener(v -> {
-            dismiss();
-            NavHostFragment.findNavController(this).navigate(R.id.action_navigation_menu_to_hiddenAlbumsFragment);
+            navController.navigate(R.id.action_navigation_menu_to_hiddenAlbumsFragment);
         });
     }
 
