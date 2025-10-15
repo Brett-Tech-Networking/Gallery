@@ -14,7 +14,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.Toast;
-
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -25,11 +24,9 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.viewpager2.widget.ViewPager2;
-
 import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -250,6 +247,9 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         if (itemId == android.R.id.home) {
             finish();
             return true;
+        } else if (itemId == R.id.action_details) {
+            showImageDetails();
+            return true;
         } else if (itemId == R.id.action_delete) {
             if (isSecureMode) {
                 deleteSecureImage();
@@ -264,12 +264,18 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         return super.onOptionsItemSelected(item);
     }
 
+    private void showImageDetails() {
+        Uri imageUri = getCurrentImageUri();
+        if (imageUri != null) {
+            ImageDetailsDialogFragment.newInstance(imageUri).show(getSupportFragmentManager(), "image_details");
+        }
+    }
+
     private void moveCurrentImage() {
         Uri imageUri = getCurrentImageUri();
         if (imageUri != null) {
             List<Uri> uris = new ArrayList<>();
             uris.add(imageUri);
-            // If we are in secure mode, we pass 'true' to show the secure album dialog
             MoveToAlbumDialogFragment.newInstance(uris, isSecureMode).show(getSupportFragmentManager(), MoveToAlbumDialogFragment.TAG);
         } else {
             Toast.makeText(this, "Could not find image to move", Toast.LENGTH_SHORT).show();
