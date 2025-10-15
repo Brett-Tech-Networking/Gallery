@@ -23,4 +23,8 @@ public class ImageDetails {
             this.tags.add(tag);
         }
     }
+
+    public void removeTag(String tag) {
+        this.tags.remove(tag);
+    }
 }

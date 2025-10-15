@@ -67,12 +67,14 @@ public class ImageDetailsDialogFragment extends BottomSheetDialogFragment {
         EditText editTextTag = view.findViewById(R.id.edit_text_tag);
         Button buttonAddTag = view.findViewById(R.id.button_add_tag);
 
-        Glide.with(this).load(imageUri).into(imagePreview);
+        Glide.with(view).load(imageUri).into(imagePreview);
         setFileDetails(detailFilename, detailDate, detailSize, detailDimensions);
 
         imageDetailsManager.getImageDetails(imageUri, details -> {
             imageDetails = details;
-            requireActivity().runOnUiThread(this::updateTags);
+            if (getActivity() != null) {
+                getActivity().runOnUiThread(this::updateTags);
+            }
         });
 
         buttonAddTag.setOnClickListener(v -> {
@@ -92,17 +94,23 @@ public class ImageDetailsDialogFragment extends BottomSheetDialogFragment {
 
     private void updateTags() {
         chipGroup.removeAllViews();
-        if (imageDetails != null) {
+        if (imageDetails != null && getContext() != null) {
             for (String tag : imageDetails.getTags()) {
-                Chip chip = new Chip(requireContext());
+                Chip chip = new Chip(getContext());
                 chip.setText(tag);
+                chip.setCloseIconVisible(true); // Make the close icon visible
+                chip.setOnCloseIconClickListener(v -> {
+                    // Handle tag removal
+                    imageDetails.removeTag(tag);
+                    imageDetailsManager.saveImageDetails(imageUri, imageDetails);
+                    updateTags(); // Refresh the UI
+                });
                 chipGroup.addView(chip);
             }
         }
     }
 
     private void setFileDetails(TextView filename, TextView date, TextView size, TextView dimensions) {
-        // **THE FIX IS HERE:** Query for both DATE_TAKEN and DATE_ADDED
         String[] projection = {
                 MediaStore.MediaColumns.DISPLAY_NAME,
                 MediaStore.MediaColumns.DATE_TAKEN,
@@ -124,10 +132,8 @@ public class ImageDetailsDialogFragment extends BottomSheetDialogFragment {
 
                 long finalDate;
                 if (dateTaken > 0) {
-                    // Use date taken if available
                     finalDate = dateTaken;
                 } else {
-                    // Otherwise, use date added (needs conversion from seconds to milliseconds)
                     finalDate = dateAdded * 1000L;
                 }
                 date.setText("Date: " + new SimpleDateFormat("yyyy-MM-dd hh:mm a", Locale.getDefault()).format(new Date(finalDate)));
@@ -137,7 +143,6 @@ public class ImageDetailsDialogFragment extends BottomSheetDialogFragment {
                 if (width > 0 && height > 0) {
                     dimensions.setText("Dimensions: " + width + " x " + height);
                 } else {
-                    // Fallback for when dimensions aren't in MediaStore (e.g., some PNGs)
                     try {
                         BitmapFactory.Options options = new BitmapFactory.Options();
                         options.inJustDecodeBounds = true;
@@ -148,7 +153,6 @@ public class ImageDetailsDialogFragment extends BottomSheetDialogFragment {
                     }
                 }
             } else {
-                // Fallback for files not in MediaStore (e.g., in secure folder)
                 File file = new File(imageUri.getPath());
                 if (file.exists()) {
                     filename.setText("Filename: " + file.getName());
@@ -165,7 +169,6 @@ public class ImageDetailsDialogFragment extends BottomSheetDialogFragment {
                 }
             }
         } catch (Exception e) {
-            // Handle any exceptions during query
             filename.setText("Filename: Not found");
             date.setText("Date: Unknown");
             size.setText("Size: Unknown");
