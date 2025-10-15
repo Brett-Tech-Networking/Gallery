@@ -8,16 +8,13 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
-
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-
 import com.bretttech.gallery.data.AlbumCoverRepository;
 import com.bretttech.gallery.data.AlbumVisibilityManager;
 import com.bretttech.gallery.ui.pictures.Image;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 public class AlbumsViewModel extends AndroidViewModel {
 
@@ -39,6 +37,7 @@ public class AlbumsViewModel extends AndroidViewModel {
 
     private List<Album> allAlbums = new ArrayList<>();
     private SortOrder currentSortOrder = SortOrder.NAME_ASC;
+    private String currentSearchQuery = null; // Add this line
 
     public enum SortOrder {
         DATE_DESC, DATE_ASC, NAME_ASC, NAME_DESC, COUNT_DESC, COUNT_ASC
@@ -67,7 +66,12 @@ public class AlbumsViewModel extends AndroidViewModel {
 
     public void sortAlbums(SortOrder sortOrder) {
         currentSortOrder = sortOrder;
-        sortAndPostAlbums();
+        filterAndSortAlbums(); // Use the new method
+    }
+
+    public void searchAlbums(String query) {
+        currentSearchQuery = query;
+        filterAndSortAlbums(); // Use the new method
     }
 
     public void setAlbumCover(String albumPath, Uri coverUri, int mediaType) {
@@ -100,13 +104,23 @@ public class AlbumsViewModel extends AndroidViewModel {
         }
         Album newAlbum = new Album(albumName, null, 0, albumPath, Image.MEDIA_TYPE_IMAGE, System.currentTimeMillis() / 1000);
         allAlbums.add(newAlbum);
-        sortAndPostAlbums();
+        filterAndSortAlbums();
     }
 
 
-    private void sortAndPostAlbums() {
+    private void filterAndSortAlbums() {
         executorService.execute(() -> {
-            List<Album> sortedList = new ArrayList<>(allAlbums);
+            List<Album> processedList = new ArrayList<>(allAlbums);
+
+            // Apply search filter first
+            if (currentSearchQuery != null && !currentSearchQuery.isEmpty()) {
+                String lowerCaseQuery = currentSearchQuery.toLowerCase();
+                processedList = processedList.stream()
+                        .filter(album -> album.getName().toLowerCase().contains(lowerCaseQuery))
+                        .collect(Collectors.toList());
+            }
+
+            // Then apply sorting
             Comparator<Album> secondaryComparator;
 
             switch (currentSortOrder) {
@@ -140,12 +154,12 @@ public class AlbumsViewModel extends AndroidViewModel {
             };
 
             Comparator<Album> combinedComparator = primaryComparator.thenComparing(secondaryComparator);
-            Collections.sort(sortedList, combinedComparator);
+            Collections.sort(processedList, combinedComparator);
 
             final Set<String> hiddenPaths = visibilityManager.getHiddenAlbumPaths();
-            sortedList.removeIf(album -> hiddenPaths.contains(album.getFolderPath()));
+            processedList.removeIf(album -> hiddenPaths.contains(album.getFolderPath()));
 
-            albumsLiveData.postValue(sortedList);
+            albumsLiveData.postValue(processedList);
         });
     }
 
@@ -158,7 +172,6 @@ public class AlbumsViewModel extends AndroidViewModel {
                 File[] subdirectories = publicPicturesDir.listFiles(File::isDirectory);
                 if (subdirectories != null) {
                     for (File dir : subdirectories) {
-                        // **BUG FIX**: Ignore hidden folders like .thumbnails
                         if (dir.getName().startsWith(".")) {
                             continue;
                         }
@@ -192,7 +205,7 @@ public class AlbumsViewModel extends AndroidViewModel {
                         String path = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA));
                         File parentFile = new File(path).getParentFile();
                         if (parentFile == null || parentFile.getAbsolutePath() == null || parentFile.getName().startsWith(".")) {
-                            continue; // Also ignore media inside hidden folders
+                            continue;
                         }
 
                         String folderPath = parentFile.getAbsolutePath();
@@ -232,7 +245,7 @@ public class AlbumsViewModel extends AndroidViewModel {
 
             allAlbums = finalAlbums;
             allAlbumsUnfilteredLiveData.postValue(new ArrayList<>(allAlbums));
-            sortAndPostAlbums();
+            filterAndSortAlbums();
         });
     }
 }

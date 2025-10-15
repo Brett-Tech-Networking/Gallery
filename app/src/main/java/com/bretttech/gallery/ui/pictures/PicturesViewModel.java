@@ -5,27 +5,40 @@ import android.content.ContentUris;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.MediaStore;
-import android.util.Log;
-
+import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-
-import java.io.File;
+import com.bretttech.gallery.data.ImageDetails;
+import com.bretttech.gallery.data.ImageDetailsManager;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 public class PicturesViewModel extends AndroidViewModel {
 
     private final MutableLiveData<List<Image>> images = new MutableLiveData<>();
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private List<Image> allImages = new ArrayList<>();
+    private SortOrder currentSortOrder = SortOrder.DATE_DESC;
+    private String currentSearchQuery = null;
+    private final ImageDetailsManager imageDetailsManager;
 
-    private static final String TAG = "PicturesViewModel";
+    public enum SortOrder {
+        DATE_DESC, DATE_ASC
+    }
 
-    public PicturesViewModel(Application application) {
+    public PicturesViewModel(@NonNull Application application) {
         super(application);
+        imageDetailsManager = new ImageDetailsManager(application);
     }
 
     public LiveData<List<Image>> getImages() {
@@ -35,43 +48,42 @@ public class PicturesViewModel extends AndroidViewModel {
     public void loadImages() {
         executorService.execute(() -> {
             List<Image> imageList = new ArrayList<>();
-            // UPDATED: Use MediaStore.Files.getContentUri("external") to query for all media types
             Uri queryUri = MediaStore.Files.getContentUri("external");
 
-            // UPDATED: Include MEDIA_TYPE in projection
             String[] projection = {
                     MediaStore.Files.FileColumns._ID,
                     MediaStore.Files.FileColumns.MEDIA_TYPE,
                     MediaStore.Files.FileColumns.DATA,
-                    MediaStore.Files.FileColumns.DATE_TAKEN
+                    MediaStore.Files.FileColumns.DATE_ADDED,
+                    MediaStore.Files.FileColumns.DISPLAY_NAME
             };
 
-            // NEW: Selection to filter for only images and videos
-            String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?) AND " + MediaStore.Files.FileColumns.DATA + " NOT LIKE ?";
+            String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?)";
             String[] selectionArgs = new String[]{
                     String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE),
-                    String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO),
-                    "%" + getApplication().getFilesDir().getAbsolutePath() + "/secure%"
+                    String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
             };
 
-            String sortOrder = MediaStore.Files.FileColumns.DATE_TAKEN + " DESC";
-
             try (Cursor cursor = getApplication().getContentResolver().query(
-                    queryUri, // UPDATED URI
-                    projection, // UPDATED PROJECTION
-                    selection,  // ADDED SELECTION
-                    selectionArgs, // ADDED SELECTION ARGS
-                    sortOrder
+                    queryUri,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    null
             )) {
                 if (cursor != null) {
                     int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID);
-                    int mediaTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE); // NEW COLUMN INDEX
+                    int mediaTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE);
+                    int displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME);
+                    int dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED);
+
 
                     while (cursor.moveToNext()) {
                         long id = cursor.getLong(idColumn);
-                        int mediaType = cursor.getInt(mediaTypeColumn); // GET MEDIA TYPE
+                        int mediaType = cursor.getInt(mediaTypeColumn);
+                        String displayName = cursor.getString(displayNameColumn);
+                        long dateAdded = cursor.getLong(dateAddedColumn);
 
-                        // Use the correct collection URI to form the content URI based on media type
                         Uri contentUri;
                         if (mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO) {
                             contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id);
@@ -79,12 +91,79 @@ public class PicturesViewModel extends AndroidViewModel {
                             contentUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
                         }
 
-                        // UPDATED: Pass mediaType to the Image constructor
-                        imageList.add(new Image(contentUri, mediaType));
+                        imageList.add(new Image(contentUri, mediaType, displayName, dateAdded));
                     }
                 }
             }
-            images.postValue(imageList);
+            allImages = imageList;
+            filterAndSortImages();
+        });
+    }
+
+    public void sortImages(SortOrder sortOrder) {
+        currentSortOrder = sortOrder;
+        filterAndSortImages();
+    }
+
+    public void searchImages(String query) {
+        currentSearchQuery = query;
+        filterAndSortImages();
+    }
+
+    private void filterAndSortImages() {
+        executorService.execute(() -> {
+            List<Image> filteredList = new ArrayList<>(allImages);
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
+            if (currentSearchQuery != null && !currentSearchQuery.isEmpty()) {
+                String lowerCaseQuery = currentSearchQuery.toLowerCase();
+                List<Image> tagResults = new ArrayList<>();
+                CountDownLatch latch = new CountDownLatch(filteredList.size());
+
+                for (Image image : filteredList) {
+                    imageDetailsManager.getImageDetails(image.getUri(), details -> {
+                        boolean tagMatch = details.getTags().stream()
+                                .anyMatch(tag -> tag.toLowerCase().contains(lowerCaseQuery));
+                        if (tagMatch) {
+                            synchronized (tagResults) {
+                                tagResults.add(image);
+                            }
+                        }
+                        latch.countDown();
+                    });
+                }
+
+                try {
+                    latch.await(); // Wait for all tag lookups to complete
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+
+                filteredList = filteredList.stream()
+                        .filter(image -> {
+                            if (image.getDisplayName() != null && image.getDisplayName().toLowerCase().contains(lowerCaseQuery)) {
+                                return true;
+                            }
+                            String formattedDate = sdf.format(new Date(image.getDateAdded() * 1000L));
+                            return formattedDate.contains(lowerCaseQuery);
+                        })
+                        .collect(Collectors.toList());
+
+                // Combine results, avoiding duplicates
+                for (Image tagResult : tagResults) {
+                    if (!filteredList.contains(tagResult)) {
+                        filteredList.add(tagResult);
+                    }
+                }
+            }
+
+            if (currentSortOrder == SortOrder.DATE_ASC) {
+                filteredList.sort(Comparator.comparingLong(Image::getDateAdded));
+            } else {
+                filteredList.sort(Comparator.comparingLong(Image::getDateAdded).reversed());
+            }
+
+            images.postValue(filteredList);
         });
     }
 }

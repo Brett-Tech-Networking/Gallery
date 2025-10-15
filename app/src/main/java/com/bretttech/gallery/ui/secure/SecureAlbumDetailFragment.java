@@ -5,40 +5,45 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.view.ActionMode;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.NavController;
+import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.GridLayoutManager;
-
 import com.bretttech.gallery.ImageDataHolder;
 import com.bretttech.gallery.PhotoViewActivity;
 import com.bretttech.gallery.R;
-import com.bretttech.gallery.VideoPlayerActivity;
 import com.bretttech.gallery.databinding.FragmentAlbumDetailBinding;
 import com.bretttech.gallery.ui.pictures.Image;
-import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
 import com.bretttech.gallery.ui.pictures.PicturesAdapter;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class SecureAlbumDetailFragment extends Fragment implements androidx.appcompat.view.ActionMode.Callback {
+public class SecureAlbumDetailFragment extends Fragment implements ActionMode.Callback {
 
     private FragmentAlbumDetailBinding binding;
     private SecureAlbumDetailViewModel viewModel;
     private PicturesAdapter picturesAdapter;
-    private List<Image> images = new ArrayList<>();
+    private List<Image> images;
     private String albumFolderPath;
-    private androidx.appcompat.view.ActionMode actionMode;
+    private ActionMode actionMode;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
 
     @Nullable
     @Override
@@ -47,14 +52,15 @@ public class SecureAlbumDetailFragment extends Fragment implements androidx.appc
         viewModel = new ViewModelProvider(this).get(SecureAlbumDetailViewModel.class);
 
         albumFolderPath = getArguments() != null ? getArguments().getString("albumFolderPath") : null;
-        if (albumFolderPath != null) {
-            ((AppCompatActivity) requireActivity()).getSupportActionBar().setTitle(new File(albumFolderPath).getName());
-        }
 
         setupRecyclerView();
 
         if (albumFolderPath != null) {
-            viewModel.loadImagesFromSecureAlbum(albumFolderPath);
+            viewModel.loadImages(albumFolderPath);
+
+            if (getActivity() instanceof AppCompatActivity) {
+                ((AppCompatActivity) getActivity()).getSupportActionBar().setTitle(new File(albumFolderPath).getName());
+            }
         }
 
         viewModel.getImages().observe(getViewLifecycleOwner(), imageList -> {
@@ -62,35 +68,33 @@ public class SecureAlbumDetailFragment extends Fragment implements androidx.appc
             picturesAdapter.setImages(imageList);
         });
 
-        getParentFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this, (requestKey, bundle) -> {
-            if (bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS)) {
-                viewModel.loadImagesFromSecureAlbum(albumFolderPath); // Refresh
-            }
-        });
-
         return binding.getRoot();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (albumFolderPath != null && actionMode == null) {
+            viewModel.loadImages(albumFolderPath); // Refresh
+        }
     }
 
     private void setupRecyclerView() {
         picturesAdapter = new PicturesAdapter(
-                image -> { // onClick
+                image -> {
                     if (actionMode != null) {
                         toggleSelection(image);
                     } else {
-                        Intent intent;
-                        if (image.isVideo()) {
-                            intent = new Intent(getContext(), VideoPlayerActivity.class);
-                            intent.putExtra(VideoPlayerActivity.EXTRA_VIDEO_URI, image.getUri());
-                        } else {
+                        if (images != null && !images.isEmpty()) {
                             ImageDataHolder.getInstance().setImageList(images);
-                            intent = new Intent(getContext(), PhotoViewActivity.class);
+                            Intent intent = new Intent(getContext(), PhotoViewActivity.class);
                             intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_POSITION, images.indexOf(image));
+                            intent.putExtra("isSecure", true); // Let PhotoViewActivity know it's in secure mode
+                            startActivity(intent);
                         }
-                        intent.putExtra("isSecure", true); // Let PhotoViewActivity know it's in secure mode
-                        startActivity(intent);
                     }
                 },
-                this::toggleSelection // onLongClick
+                this::toggleSelection
         );
         binding.recyclerViewAlbumDetail.setLayoutManager(new GridLayoutManager(getContext(), 3));
         binding.recyclerViewAlbumDetail.setAdapter(picturesAdapter);
@@ -105,6 +109,7 @@ public class SecureAlbumDetailFragment extends Fragment implements androidx.appc
                 actionMode = ((AppCompatActivity) requireActivity()).startSupportActionMode(this);
             }
             actionMode.setTitle(selectionCount + " selected");
+            actionMode.invalidate();
         } else {
             if (actionMode != null) {
                 actionMode.finish();
@@ -113,58 +118,68 @@ public class SecureAlbumDetailFragment extends Fragment implements androidx.appc
     }
 
     @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        if (actionMode != null) {
-            actionMode.finish();
-        }
-        binding = null;
+    public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
+        inflater.inflate(R.menu.secure_album_detail_menu, menu);
+        super.onCreateOptionsMenu(menu, inflater);
     }
 
     @Override
-    public boolean onCreateActionMode(androidx.appcompat.view.ActionMode mode, Menu menu) {
-        mode.getMenuInflater().inflate(R.menu.secure_album_detail_menu, menu);
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.action_move_out) {
+            // Your logic for moving images out of the secure folder
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+        mode.getMenuInflater().inflate(R.menu.secure_album_context_menu, menu);
         return true;
     }
 
     @Override
-    public boolean onPrepareActionMode(androidx.appcompat.view.ActionMode mode, Menu menu) {
+    public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
         return false;
     }
 
     @Override
-    public boolean onActionItemClicked(androidx.appcompat.view.ActionMode mode, MenuItem item) {
+    public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
         List<Image> selectedImages = picturesAdapter.getSelectedImages();
         List<Uri> uris = selectedImages.stream().map(Image::getUri).collect(Collectors.toList());
 
-        if (uris.isEmpty()) return true;
+        if (uris.isEmpty()) {
+            return true;
+        }
 
-        int itemId = item.getItemId();
-        if (itemId == R.id.action_move_out) {
-            // Move to a public album
-            MoveToAlbumDialogFragment.newInstance(uris, false).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
-            mode.finish();
-            return true;
-        } else if (itemId == R.id.action_move_to_another_secure_album) {
-            // Move to another secure album
-            MoveToAlbumDialogFragment.newInstance(uris, true).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
-            mode.finish();
-            return true;
-        } else if (itemId == R.id.action_delete) {
-            for (Uri uri : uris) {
-                new File(uri.getPath()).delete();
-            }
-            viewModel.loadImagesFromSecureAlbum(albumFolderPath); // Refresh
-            Toast.makeText(getContext(), "Deleted " + uris.size() + " items", Toast.LENGTH_SHORT).show();
+        if (item.getItemId() == R.id.action_delete_secure) {
+            deleteSecureImages(uris);
             mode.finish();
             return true;
         }
         return false;
     }
 
+    private void deleteSecureImages(List<Uri> uris) {
+        for (Uri uri : uris) {
+            File file = new File(uri.getPath());
+            if (file.exists()) {
+                file.delete();
+            }
+        }
+        Toast.makeText(getContext(), uris.size() + " item(s) deleted", Toast.LENGTH_SHORT).show();
+        viewModel.loadImages(albumFolderPath); // Refresh
+    }
+
     @Override
-    public void onDestroyActionMode(androidx.appcompat.view.ActionMode mode) {
+    public void onDestroyActionMode(ActionMode mode) {
         actionMode = null;
         picturesAdapter.clearSelection();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null;
     }
 }

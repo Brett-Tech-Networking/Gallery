@@ -10,11 +10,6 @@
         app:actionViewClass="androidx.appcompat.widget.SearchView" />
 
     <item
-        android:id="@+id/action_create_album"
-        android:icon="@drawable/ic_add_box"
-        android:title="Create New Album"
-        app:showAsAction="ifRoom" />
-    <item
         android:id="@+id/action_sort"
         android:icon="@drawable/ic_sort"
         android:title="@string/action_sort"
@@ -24,22 +19,10 @@
                 <item
                     android:id="@+id/sort_date_desc"
                     android:title="@string/sort_date_desc"
-                    android:checked="false" />
+                    android:checked="true" />
                 <item
                     android:id="@+id/sort_date_asc"
                     android:title="@string/sort_date_asc" />
-                <item
-                    android:id="@+id/sort_name_asc"
-                    android:title="@string/sort_name_asc"
-                    android:checked="true" /> <item
-                android:id="@+id/sort_name_desc"
-                android:title="@string/sort_name_desc" />
-                <item
-                    android:id="@+id/sort_count_desc"
-                    android:title="@string/sort_count_desc" />
-                <item
-                    android:id="@+id/sort_count_asc"
-                    android:title="@string/sort_count_asc" />
             </group>
         </menu>
     </item>

@@ -82,4 +82,5 @@
         android:name="com.bretttech.gallery.ui.albums.HiddenAlbumsFragment"
         android:label="@string/title_hide_albums"
         tools:layout="@layout/fragment_hidden_albums" />
+
 </navigation>

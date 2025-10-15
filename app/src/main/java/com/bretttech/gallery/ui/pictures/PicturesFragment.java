@@ -12,22 +12,22 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
-
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
-
 import com.bretttech.gallery.ImageDataHolder;
 import com.bretttech.gallery.PhotoViewActivity;
 import com.bretttech.gallery.R;
@@ -35,7 +35,6 @@ import com.bretttech.gallery.VideoPlayerActivity;
 import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.databinding.FragmentPicturesBinding;
 import com.bretttech.gallery.ui.albums.AlbumsViewModel;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -72,7 +71,7 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        setHasOptionsMenu(true); // Enable menu for this fragment
         albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
         favoritesManager = new FavoritesManager(requireContext());
 
@@ -113,6 +112,44 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
         if (actionMode == null) {
             picturesViewModel.loadImages();
         }
+    }
+
+    @Override
+    public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
+        inflater.inflate(R.menu.pictures_menu, menu);
+        super.onCreateOptionsMenu(menu, inflater);
+
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        SearchView searchView = (SearchView) searchItem.getActionView();
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                picturesViewModel.searchImages(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                picturesViewModel.searchImages(newText);
+                return true;
+            }
+        });
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int itemId = item.getItemId();
+        if (itemId == R.id.sort_date_desc) {
+            picturesViewModel.sortImages(PicturesViewModel.SortOrder.DATE_DESC);
+            item.setChecked(true);
+            return true;
+        } else if (itemId == R.id.sort_date_asc) {
+            picturesViewModel.sortImages(PicturesViewModel.SortOrder.DATE_ASC);
+            item.setChecked(true);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private void setupRecyclerView() {

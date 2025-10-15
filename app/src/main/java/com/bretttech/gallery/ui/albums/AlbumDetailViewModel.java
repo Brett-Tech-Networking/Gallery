@@ -5,23 +5,21 @@ import android.content.ContentUris;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.MediaStore;
-
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-
 import com.bretttech.gallery.ui.pictures.Image;
-
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class AlbumDetailViewModel extends AndroidViewModel {
 
-    private final MutableLiveData<List<Image>> imagesLiveData = new MutableLiveData<>();
+    private final MutableLiveData<List<Image>> images = new MutableLiveData<>();
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     public AlbumDetailViewModel(@NonNull Application application) {
@@ -29,62 +27,48 @@ public class AlbumDetailViewModel extends AndroidViewModel {
     }
 
     public LiveData<List<Image>> getImages() {
-        return imagesLiveData;
+        return images;
     }
 
     public void loadImagesFromAlbum(String folderPath) {
         executorService.execute(() -> {
-            List<Image> images = new ArrayList<>();
+            List<Image> imageList = new ArrayList<>();
+            // Query for images
+            queryMedia(imageList, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, folderPath, Image.MEDIA_TYPE_IMAGE);
+            // Query for videos
+            queryMedia(imageList, MediaStore.Video.Media.EXTERNAL_CONTENT_URI, folderPath, Image.MEDIA_TYPE_VIDEO);
 
-            // UPDATED: Use MediaStore.Files.getContentUri("external") to query for all media types
-            Uri queryUri = MediaStore.Files.getContentUri("external");
+            // Sort by date added, newest first
+            imageList.sort(Comparator.comparingLong(Image::getDateAdded).reversed());
 
-            // UPDATED: Include MEDIA_TYPE in projection
-            String[] projection = {
-                    MediaStore.Files.FileColumns._ID,
-                    MediaStore.Files.FileColumns.MEDIA_TYPE,
-                    MediaStore.Files.FileColumns.DATA
-            };
+            images.postValue(imageList);
+        });
+    }
 
-            // MODIFIED Selection: Filter by folder path AND media type (image or video)
-            String selection = MediaStore.Files.FileColumns.DATA + " LIKE ? AND " +
-                    MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?)";
-            String[] selectionArgs = new String[]{
-                    folderPath + File.separator + "%",
-                    String.valueOf(Image.MEDIA_TYPE_IMAGE),
-                    String.valueOf(Image.MEDIA_TYPE_VIDEO)
-            };
+    private void queryMedia(List<Image> images, Uri contentUri, String folderPath, int mediaType) {
+        String[] projection = {
+                MediaStore.MediaColumns._ID,
+                MediaStore.MediaColumns.DISPLAY_NAME,
+                MediaStore.MediaColumns.DATE_ADDED
+        };
+        String selection = MediaStore.MediaColumns.DATA + " LIKE ?";
+        String[] selectionArgs = new String[]{folderPath + File.separator + "%"};
 
-            String sortOrder = MediaStore.Files.FileColumns.DATE_ADDED + " DESC";
+        try (Cursor cursor = getApplication().getContentResolver().query(contentUri, projection, selection, selectionArgs, null)) {
+            if (cursor != null) {
+                int idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID);
+                int displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME);
+                int dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED);
 
-            try (Cursor cursor = getApplication().getContentResolver().query(
-                    queryUri, // UPDATED URI
-                    projection,
-                    selection, // UPDATED SELECTION
-                    selectionArgs, // UPDATED SELECTION ARGS
-                    sortOrder
-            )) {
-                if (cursor != null) {
-                    int idCol = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID);
-                    int mediaTypeCol = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE); // NEW
+                while (cursor.moveToNext()) {
+                    long id = cursor.getLong(idColumn);
+                    String displayName = cursor.getString(displayNameColumn);
+                    long dateAdded = cursor.getLong(dateAddedColumn);
 
-                    while (cursor.moveToNext()) {
-                        long id = cursor.getLong(idCol);
-                        int mediaType = cursor.getInt(mediaTypeCol); // GET MEDIA TYPE
-
-                        Uri contentUri;
-                        if (mediaType == Image.MEDIA_TYPE_VIDEO) {
-                            contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id);
-                        } else {
-                            contentUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
-                        }
-
-                        // UPDATED: Pass mediaType to the Image constructor
-                        images.add(new Image(contentUri, mediaType));
-                    }
+                    Uri contentUriWithId = ContentUris.withAppendedId(contentUri, id);
+                    images.add(new Image(contentUriWithId, mediaType, displayName, dateAdded));
                 }
             }
-            imagesLiveData.postValue(images);
-        });
+        }
     }
 }

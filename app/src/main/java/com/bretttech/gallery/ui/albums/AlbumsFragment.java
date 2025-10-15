@@ -23,7 +23,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.Toast;
-
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -31,17 +30,16 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.SharedViewModel;
 import com.bretttech.gallery.ui.pictures.Image;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -142,6 +140,23 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
         inflater.inflate(R.menu.albums_menu, menu);
         super.onCreateOptionsMenu(menu, inflater);
+
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        SearchView searchView = (SearchView) searchItem.getActionView();
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                albumsViewModel.searchAlbums(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                albumsViewModel.searchAlbums(newText);
+                return true;
+            }
+        });
     }
 
     @Override
@@ -266,7 +281,7 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     private void showDeleteConfirmation(final List<Album> albumsToDelete, final androidx.appcompat.view.ActionMode mode) {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Delete " + albumsToDelete.size() + " Album(s)?")
-               // .setMessage("This will move all photos inside to the trash and permanently delete the album folder. This action cannot be undone.")
+                // .setMessage("This will move all photos inside to the trash and permanently delete the album folder. This action cannot be undone.")
                 .setMessage("This will delete all photos inside and permanently delete the album folder. This action cannot be undone.")
 
                 .setPositiveButton("Delete", (dialog, which) -> {
