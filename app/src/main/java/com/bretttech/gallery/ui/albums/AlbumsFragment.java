@@ -1,5 +1,6 @@
 package com.bretttech.gallery.ui.albums;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.app.RecoverableSecurityException;
@@ -8,6 +9,7 @@ import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -31,6 +33,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
@@ -54,6 +57,15 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private SharedViewModel sharedViewModel;
     private List<File> mFoldersToDelete;
+
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    showCreateAlbumDialog();
+                } else {
+                    Toast.makeText(getContext(), "Permission denied to write to your External storage", Toast.LENGTH_SHORT).show();
+                }
+            });
 
     private final ActivityResultLauncher<Intent> changeCoverLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -163,7 +175,7 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int itemId = item.getItemId();
         if (itemId == R.id.action_create_album) {
-            showCreateAlbumDialog();
+            requestStoragePermissionAndShowCreateAlbumDialog();
             return true;
         } else if (itemId == R.id.sort_date_desc) {
             albumsViewModel.sortAlbums(AlbumsViewModel.SortOrder.DATE_DESC);
@@ -184,6 +196,19 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
             item.setChecked(true);
         }
         return true;
+    }
+
+    private void requestStoragePermissionAndShowCreateAlbumDialog() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+            } else {
+                showCreateAlbumDialog();
+            }
+        } else {
+            showCreateAlbumDialog();
+        }
     }
 
     private void showCreateAlbumDialog() {

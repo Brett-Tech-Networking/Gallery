@@ -1,8 +1,11 @@
 package com.bretttech.gallery.ui.pictures;
 
+import android.app.Dialog;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
+import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -15,20 +18,21 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.DialogFragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
 import com.bretttech.gallery.R;
+import com.bretttech.gallery.SharedViewModel;
 import com.bretttech.gallery.ui.albums.Album;
 import com.bretttech.gallery.ui.albums.AlbumsAdapter;
 import com.bretttech.gallery.ui.albums.AlbumsViewModel;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
-
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
 
@@ -78,7 +83,6 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
         if (getArguments() != null) {
             urisToMove = getArguments().getParcelableArrayList(ARG_URIS);
             isSecureMove = getArguments().getBoolean(ARG_IS_SECURE_MOVE, false);
-            // Check if we are moving out of the secure folder (from secure album detail)
             if (getParentFragment() instanceof com.bretttech.gallery.ui.secure.SecureAlbumDetailFragment) {
                 isMovingOutOfSecure = true;
             }
@@ -102,7 +106,6 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
         setupRecyclerView();
 
         albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
-        // **BUG FIX**: Observe the unfiltered list to include empty albums
         albumsViewModel.getAllAlbumsUnfiltered().observe(getViewLifecycleOwner(), albums -> {
             List<Album> filteredAlbums = new ArrayList<>();
             for (Album album : albums) {
@@ -120,7 +123,6 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
             albumsRecyclerView.setVisibility(View.VISIBLE);
         });
 
-        // Still need to trigger a load to ensure the list is up-to-date
         albumsViewModel.loadAlbums();
 
         return view;
@@ -212,13 +214,14 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
                 if (isMovingOutOfSecure) {
                     File sourceFile = new File(sourceUri.getPath());
                     if (sourceFile.renameTo(destinationFile)) {
-                        AlbumsViewModel.scanFile(requireContext(), Uri.fromFile(destinationFile));
+                        scanFile(requireContext(), destinationFile.getAbsolutePath());
                     } else {
                         allSuccess = false;
                     }
                 } else {
                     copyStream(requireContext().getContentResolver().openInputStream(sourceUri), new FileOutputStream(destinationFile));
                     urisToDelete.add(sourceUri);
+                    scanFile(requireContext(), destinationFile.getAbsolutePath());
                 }
 
             } catch (Exception e) {
@@ -234,13 +237,16 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
                     resolver.delete(uri, null, null);
                 }
             } catch (Exception e) {
-                // This might fail due to scoped storage, but the copy has succeeded.
-                // We don't mark the whole operation as a failure.
                 e.printStackTrace();
             }
         }
 
         return allSuccess;
+    }
+
+    private void scanFile(Context context, String path) {
+        if (context == null || path == null) return;
+        MediaScannerConnection.scanFile(context, new String[]{path}, null, null);
     }
 
     private String getFileNameFromUri(Uri uri) {
