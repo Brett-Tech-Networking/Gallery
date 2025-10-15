@@ -1,7 +1,7 @@
 [versions]
 agp = "8.12.3"
 appcompatVersion = "1.6.1"
-glide = "5.0.5"
+glide = "4.16.0" # Updated to a version that definitely has stable KSP
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
@@ -15,13 +15,15 @@ navigationUi = "2.9.5"
 photoview = "2.3.0"
 navigation = "2.9.5"
 ucrop = "2.2.8"
-# This is the correct, verified version for the Java-based PhotoEditor
 photoeditor = "1.5.1"
-biometric = "1.1.0" # Add this line
+biometric = "1.1.0"
+kotlin = "1.9.0"
+ksp = "1.9.0-1.0.13"
 
 [libraries]
 appcompat-v161 = { module = "androidx.appcompat:appcompat", version.ref = "appcompatVersion" }
 glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
+glide-ksp = { module = "com.github.bumptech.glide:ksp", version.ref = "glide" } # Correct KSP compiler
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -36,11 +38,12 @@ photoview = { module = "com.github.chrisbanes:PhotoView", version.ref = "photovi
 androidx-navigation-fragment = { group = "androidx.navigation", name = "navigation-fragment", version.ref = "navigation" }
 androidx-navigation-ui = { group = "androidx.navigation", name = "navigation-ui", version.ref = "navigation" }
 ucrop = { group = "com.github.yalantis", name = "ucrop", version.ref = "ucrop" }
-# THIS IS THE CORRECT, VERIFIED DEPENDENCY COORDINATE
 photoeditor = { group = "com.burhanrashid52", name = "photoeditor", version.ref = "photoeditor" }
-androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" } # Add this line
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 androidx-navigation-safeargs = { id = "androidx.navigation.safeargs", version.ref = "navigation" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

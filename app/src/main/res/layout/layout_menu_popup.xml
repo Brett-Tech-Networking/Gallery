@@ -57,6 +57,30 @@
         </RelativeLayout>
 
         <LinearLayout
+            android:id="@+id/menu_favorites"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="12dp">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="16dp"
+                android:src="@drawable/ic_favorite"
+                app:tint="?android:attr/textColorPrimary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/title_favorites"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <LinearLayout
             android:id="@+id/menu_secure_folder"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

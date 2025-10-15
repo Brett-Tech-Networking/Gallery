@@ -43,13 +43,23 @@
         <action
             android:id="@+id/action_navigation_menu_to_hiddenAlbumsFragment"
             app:destination="@id/hiddenAlbumsFragment"
-            app:popUpTo="@id/navigation_menu"   app:popUpToInclusive="true" />    </dialog>
+            app:popUpTo="@id/navigation_menu"   app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_navigation_menu_to_favoritesFragment"
+            app:destination="@id/favoritesFragment" />
+    </dialog>
 
     <fragment
         android:id="@+id/trashFragment"
         android:name="com.bretttech.gallery.ui.trash.TrashFragment"
         android:label="@string/title_trash"
         tools:layout="@layout/fragment_trash" />
+
+    <fragment
+        android:id="@+id/favoritesFragment"
+        android:name="com.bretttech.gallery.ui.favorites.FavoritesFragment"
+        android:label="@string/title_favorites"
+        tools:layout="@layout/fragment_favorites" />
 
     <fragment
         android:id="@+id/secureFolderFragment"

@@ -32,6 +32,7 @@ import com.bretttech.gallery.ImageDataHolder;
 import com.bretttech.gallery.PhotoViewActivity;
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.VideoPlayerActivity;
+import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.databinding.FragmentPicturesBinding;
 import com.bretttech.gallery.ui.albums.AlbumsViewModel;
 
@@ -47,6 +48,7 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
     private List<Image> images = new ArrayList<>();
     private androidx.appcompat.view.ActionMode actionMode;
     private AlbumsViewModel albumsViewModel;
+    private FavoritesManager favoritesManager;
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -72,6 +74,7 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
         super.onCreate(savedInstanceState);
 
         albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
+        favoritesManager = new FavoritesManager(requireContext());
 
         getParentFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this, (requestKey, bundle) -> {
             boolean success = bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS);
@@ -230,6 +233,14 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
                     Toast.makeText(getContext(), uris.size() + " item(s) permanently deleted", Toast.LENGTH_SHORT).show();
                 }
                 picturesViewModel.loadImages();
+            }
+            for (Uri uri : uris) {
+                for (Image image : images) {
+                    if (image.getUri().equals(uri)) {
+                        favoritesManager.removeFavorite(image);
+                        break;
+                    }
+                }
             }
         } catch (Exception e) {
             Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();

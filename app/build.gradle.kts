@@ -1,7 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
-    // This correctly applies the Safe Args plugin to your app module
     alias(libs.plugins.androidx.navigation.safeargs)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -15,6 +16,7 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -26,10 +28,14 @@ android {
                 "proguard-rules.pro"
             )
         }
+
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
     }
     buildFeatures {
         viewBinding = true
@@ -51,6 +57,8 @@ dependencies {
 
     // Add the Glide library
     implementation(libs.glide)
+    ksp(libs.glide.ksp) // Use the correct KSP dependency
+
     // Add pinch zoom in gallery
     implementation(libs.photoview)
     implementation(libs.ucrop)
@@ -58,4 +66,7 @@ dependencies {
 
     // Add Biometric library
     implementation(libs.androidx.biometric)
+
+    // Add GSON library for Favorites feature
+    implementation("com.google.code.gson:gson:2.8.9")
 }

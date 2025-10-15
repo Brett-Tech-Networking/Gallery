@@ -48,6 +48,10 @@ public class MenuFragment extends BottomSheetDialogFragment {
         binding.menuPopup.menuHideAlbums.setOnClickListener(v -> {
             navController.navigate(R.id.action_navigation_menu_to_hiddenAlbumsFragment);
         });
+
+        binding.menuPopup.menuFavorites.setOnClickListener(v -> {
+            navController.navigate(R.id.action_navigation_menu_to_favoritesFragment);
+        });
     }
 
     @Override

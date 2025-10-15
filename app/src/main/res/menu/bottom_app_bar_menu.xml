@@ -1,19 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
         android:id="@+id/navigation_pictures"
         android:icon="@android:drawable/ic_menu_gallery"
-        android:title="@string/title_pictures" />
+        android:title="@string/title_pictures"
+        app:showAsAction="ifRoom" />
 
     <item
         android:id="@+id/navigation_albums"
         android:icon="@android:drawable/ic_menu_slideshow"
-        android:title="@string/title_albums" />
+        android:title="@string/title_albums"
+        app:showAsAction="ifRoom" />
 
     <item
         android:id="@+id/navigation_menu"
         android:icon="@android:drawable/ic_menu_sort_by_size"
-        android:title="@string/title_menu" />
+        android:title="@string/title_menu"
+        app:showAsAction="ifRoom" />
 
 </menu>

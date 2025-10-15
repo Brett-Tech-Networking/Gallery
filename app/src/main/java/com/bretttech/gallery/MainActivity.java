@@ -45,6 +45,9 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        // --- THIS IS THE FIX ---
+        // This listener adds padding to the top of your fragment container,
+        // pushing the content down from under the status bar.
         ViewCompat.setOnApplyWindowInsetsListener(binding.navHostFragmentActivityMain,
                 (v, windowInsets) -> {
                     int insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
@@ -56,8 +59,6 @@ public class MainActivity extends AppCompatActivity {
 
         BottomNavigationView navView = binding.navView;
 
-        navView.setSelectedItemId(R.id.navigation_albums);
-
         AppBarConfiguration appBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.navigation_pictures, R.id.navigation_albums, R.id.navigation_menu)
                 .build();
@@ -68,18 +69,6 @@ public class MainActivity extends AppCompatActivity {
 
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(binding.navView, navController);
-
-        navView.setOnItemSelectedListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.navigation_pictures) {
-                navController.navigate(R.id.navigation_pictures);
-            } else if (id == R.id.navigation_albums) {
-                navController.navigate(R.id.navigation_albums);
-            } else if (id == R.id.navigation_menu) {
-                navController.navigate(R.id.navigation_menu);
-            }
-            return true;
-        });
     }
 
     private void checkStoragePermission() {

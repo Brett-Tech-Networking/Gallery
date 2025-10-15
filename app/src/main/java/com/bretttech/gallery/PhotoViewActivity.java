@@ -12,6 +12,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -25,6 +26,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.viewpager2.widget.ViewPager2;
 
+import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
 
@@ -45,6 +47,8 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
     private List<Uri> imageUris;
     private ViewGroup bottomActionBar;
     private boolean isSecureMode = false;
+    private ImageButton favoriteButton;
+    private FavoritesManager favoritesManager;
 
     private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher =
             registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
@@ -67,6 +71,9 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
 
         viewPager = findViewById(R.id.view_pager);
         bottomActionBar = findViewById(R.id.bottom_action_bar);
+        favoriteButton = findViewById(R.id.button_favorite);
+        favoritesManager = new FavoritesManager(this);
+
 
         images = ImageDataHolder.getInstance().getImageList();
         int currentPosition = getIntent().getIntExtra(EXTRA_IMAGE_POSITION, 0);
@@ -87,13 +94,23 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         }
 
         setupButtonListeners();
+        updateFavoriteButton();
         updateSystemUiVisibility(false);
         setupFragmentResultListener();
+
+        viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                super.onPageSelected(position);
+                updateFavoriteButton();
+            }
+        });
     }
 
     private void setupButtonListeners() {
         findViewById(R.id.button_share).setOnClickListener(v -> shareCurrentImage());
         findViewById(R.id.button_edit).setOnClickListener(v -> editCurrentImage());
+        findViewById(R.id.button_favorite).setOnClickListener(v -> toggleFavorite());
     }
 
     private void setupFragmentResultListener() {
@@ -114,6 +131,15 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         int currentPosition = viewPager.getCurrentItem();
         if (currentPosition >= 0 && currentPosition < imageUris.size()) {
             return imageUris.get(currentPosition);
+        }
+        return null;
+    }
+
+    private Image getCurrentImage() {
+        if (images == null || images.isEmpty()) return null;
+        int currentPosition = viewPager.getCurrentItem();
+        if (currentPosition >= 0 && currentPosition < images.size()) {
+            return images.get(currentPosition);
         }
         return null;
     }
@@ -150,6 +176,35 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         Intent intent = new Intent(this, ImageEditActivity.class);
         intent.putExtra(ImageEditActivity.EXTRA_IMAGE_URI, imageUri);
         startActivity(intent);
+    }
+
+    private void updateFavoriteButton() {
+        Image currentImage = getCurrentImage();
+        if (currentImage != null) {
+            favoritesManager.isFavorite(currentImage, isFavorite -> {
+                runOnUiThread(() -> {
+                    if (isFavorite) {
+                        favoriteButton.setImageResource(R.drawable.ic_favorite);
+                    } else {
+                        favoriteButton.setImageResource(R.drawable.ic_favorite_border);
+                    }
+                });
+            });
+        }
+    }
+
+    private void toggleFavorite() {
+        Image currentImage = getCurrentImage();
+        if (currentImage != null) {
+            favoritesManager.isFavorite(currentImage, isFavorite -> {
+                if (isFavorite) {
+                    favoritesManager.removeFavorite(currentImage);
+                } else {
+                    favoritesManager.addFavorite(currentImage);
+                }
+                runOnUiThread(this::updateFavoriteButton);
+            });
+        }
     }
 
     @Override
@@ -259,6 +314,7 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
             adapter.notifyItemRemoved(currentPosition);
 
             if (images != null && currentPosition < images.size()) {
+                favoritesManager.removeFavorite(images.get(currentPosition));
                 images.remove(currentPosition);
             }
 

@@ -42,6 +42,15 @@
             android:src="@drawable/ic_edit"
             android:contentDescription="Edit" />
 
+        <ImageButton
+            android:id="@+id/button_favorite"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_favorite_border"
+            android:contentDescription="Favorite" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
