@@ -2,44 +2,57 @@ package com.bretttech.gallery;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.ContentUris;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.exifinterface.media.ExifInterface;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.bretttech.gallery.filters.FilterListener;
 import com.bretttech.gallery.filters.FilterViewAdapter;
 import com.bretttech.gallery.text.TextEditorDialogFragment;
 import com.yalantis.ucrop.UCrop;
+
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+
 import ja.burhanrashid52.photoeditor.OnPhotoEditorListener;
 import ja.burhanrashid52.photoeditor.PhotoEditor;
 import ja.burhanrashid52.photoeditor.PhotoEditorView;
@@ -52,9 +65,14 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
 
     public static final String EXTRA_IMAGE_URI = "extra_image_uri";
     public static final int READ_WRITE_STORAGE = 52;
+    private static final String TAG = "ImageEditActivity";
+
     private PhotoEditor mPhotoEditor;
     private PhotoEditorView mPhotoEditorView;
+
     private Uri mImageUri;
+    private Uri mOriginalImageUri;
+
     private Bitmap originalBitmap;
     private Bitmap adjustedBitmap;
 
@@ -94,9 +112,15 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         setupPhotoEditor();
         setupListeners();
         setupOnBackPressed();
-        mImageUri = getIntent().getParcelableExtra(EXTRA_IMAGE_URI);
+
+        mOriginalImageUri = getIntent().getParcelableExtra(EXTRA_IMAGE_URI);
+        mImageUri = mOriginalImageUri;
+
         if (mImageUri != null) {
             loadBitmapFromUri(mImageUri);
+        } else {
+            Toast.makeText(this, "Error: Image URI not found.", Toast.LENGTH_LONG).show();
+            finish();
         }
     }
 
@@ -133,24 +157,28 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
             originalBitmap = Bitmap.createBitmap(loadedBitmap, 0, 0, loadedBitmap.getWidth(), loadedBitmap.getHeight(), matrix, true);
             adjustedBitmap = originalBitmap.copy(originalBitmap.getConfig(), true);
 
-            // FINAL FIX: This is the correct way to handle the image display.
             mPhotoEditorView.getSource().setImageBitmap(originalBitmap);
             mPhotoEditorView.getSource().setScaleType(ImageView.ScaleType.FIT_CENTER);
 
         } catch (IOException e) {
             e.printStackTrace();
+            Toast.makeText(this, "Error loading image", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void setupListeners() {
         findViewById(R.id.imgClose).setOnClickListener(this);
+        findViewById(R.id.imgSave).setOnClickListener(this);
         findViewById(R.id.tool_adjust).setOnClickListener(this);
         findViewById(R.id.tool_filters).setOnClickListener(this);
         findViewById(R.id.tool_crop_rotate).setOnClickListener(this);
+        findViewById(R.id.tool_text).setOnClickListener(this);
+        findViewById(R.id.tool_decorate).setOnClickListener(this);
+        findViewById(R.id.imgUndo).setOnClickListener(this);
+        findViewById(R.id.imgRedo).setOnClickListener(this);
 
-        // Listeners for the new buttons inside the adjustment panel
-        adjustToolsPanel.findViewById(R.id.btnSaveAdjust).setOnClickListener(v -> saveImage());
-        adjustToolsPanel.findViewById(R.id.btnCancelAdjust).setOnClickListener(v -> finish());
+        adjustToolsPanel.findViewById(R.id.btnSaveAdjust).setOnClickListener(v -> showSaveDialog());
+        adjustToolsPanel.findViewById(R.id.btnCancelAdjust).setOnClickListener(v -> hideAllToolPanels());
     }
 
     @Override
@@ -158,6 +186,8 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         int id = v.getId();
         if (id == R.id.imgClose) {
             finish();
+        } else if (id == R.id.imgSave) {
+            showSaveDialog();
         } else if (id == R.id.tool_adjust) {
             setupAdjustmentsPanel();
             showToolPanel(adjustToolsPanel);
@@ -169,7 +199,31 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
             }
         } else if (id == R.id.tool_crop_rotate) {
             startCrop(mImageUri);
+        } else if (id == R.id.tool_text) {
+            TextEditorDialogFragment textEditorDialogFragment = TextEditorDialogFragment.show(this);
+            textEditorDialogFragment.setOnTextEditorListener((inputText, colorCode) -> {
+                final TextStyleBuilder styleBuilder = new TextStyleBuilder();
+                styleBuilder.withTextColor(colorCode);
+                mPhotoEditor.addText(inputText, styleBuilder);
+            });
+        } else if (id == R.id.tool_decorate) {
+            mPhotoEditor.setBrushDrawingMode(true);
+            mPhotoEditor.setBrushColor(Color.RED);
+        } else if (id == R.id.imgUndo) {
+            mPhotoEditor.undo();
+        } else if (id == R.id.imgRedo) {
+            mPhotoEditor.redo();
         }
+    }
+
+    private void showSaveDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Save Image");
+        builder.setMessage("Overwrite the current photo or save as a new image?");
+        builder.setPositiveButton("Save as new", (dialog, which) -> saveImage(false));
+        builder.setNegativeButton("Overwrite", (dialog, which) -> saveImage(true));
+        builder.setNeutralButton("Cancel", null);
+        builder.show();
     }
 
     private void showToolPanel(View toolToShow) {
@@ -181,13 +235,11 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     }
 
     private void hideAllToolPanels() {
-        // Reset the view to the last saved state before hiding panels
         mPhotoEditorView.getSource().setImageBitmap(originalBitmap);
-        // Also reset any adjustment values
         brightnessValue = 0f;
         contrastValue = 1f;
         saturationValue = 1f;
-
+        mPhotoEditor.setBrushDrawingMode(false);
         toolPropertiesContainer.setVisibility(View.GONE);
         mainToolNavigation.setVisibility(View.VISIBLE);
     }
@@ -195,12 +247,8 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     private void setupAdjustmentsPanel() {
         List<AdjustmentsAdapter.AdjustmentTool> tools = new ArrayList<>();
         tools.add(new AdjustmentsAdapter.AdjustmentTool("Brightness", R.drawable.ic_brightness, true));
-        tools.add(new AdjustmentsAdapter.AdjustmentTool("Exposure", R.drawable.ic_brightness, false)); // Placeholder
-        tools.add(new AdjustmentsAdapter.AdjustmentTool("Contrast", R.drawable.ic_filter, false)); // Placeholder icon
+        tools.add(new AdjustmentsAdapter.AdjustmentTool("Contrast", R.drawable.ic_filter, false));
         tools.add(new AdjustmentsAdapter.AdjustmentTool("Saturation", R.drawable.ic_filter, false));
-        tools.add(new AdjustmentsAdapter.AdjustmentTool("Highlight", R.drawable.ic_sort, false)); // Placeholder
-        tools.add(new AdjustmentsAdapter.AdjustmentTool("Shadow", R.drawable.ic_sort, false)); // Placeholder
-        tools.add(new AdjustmentsAdapter.AdjustmentTool("Vignette", R.drawable.ic_sort, false)); // Placeholder
 
         AdjustmentsAdapter adapter = new AdjustmentsAdapter(this, tools, tool -> {
             currentAdjustmentType = tool.name;
@@ -223,10 +271,10 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     }
 
     private void updateSeekBarForCurrentTool() {
-        int progress = 100;
+        int progress;
         if ("Brightness".equals(currentAdjustmentType)) progress = (int) (brightnessValue + 100);
         else if ("Contrast".equals(currentAdjustmentType)) progress = (int) (contrastValue * 100);
-        else if ("Saturation".equals(currentAdjustmentType)) progress = (int) (saturationValue * 100);
+        else progress = (int) (saturationValue * 100);
         adjustmentSeekBar.setProgress(progress);
         updateValueFromSeekBar(progress);
         updateSliderValueTextPosition();
@@ -234,13 +282,7 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
 
     private void updateValueFromSeekBar(int progress) {
         int value = progress - 100;
-        String prefix = value > 0 ? "+" : "";
-        // For Contrast/Saturation, we can show a percentage or multiplier
-        if ("Contrast".equals(currentAdjustmentType) || "Saturation".equals(currentAdjustmentType)) {
-            sliderValueText.setText(prefix + value);
-        } else { // Brightness
-            sliderValueText.setText(prefix + value);
-        }
+        sliderValueText.setText(String.format("%s%d", value > 0 ? "+" : "", value));
 
         if ("Brightness".equals(currentAdjustmentType)) brightnessValue = value;
         else if ("Contrast".equals(currentAdjustmentType)) contrastValue = progress / 100f;
@@ -258,13 +300,10 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         Paint paint = new Paint();
 
         ColorMatrix finalMatrix = new ColorMatrix();
-
-        // Saturation
         ColorMatrix saturationMatrix = new ColorMatrix();
         saturationMatrix.setSaturation(saturationValue);
         finalMatrix.postConcat(saturationMatrix);
 
-        // Contrast
         ColorMatrix contrastMatrix = new ColorMatrix();
         float t = (1.0f - contrastValue) / 2.0f * 255.0f;
         contrastMatrix.set(new float[]{
@@ -275,7 +314,6 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         });
         finalMatrix.postConcat(contrastMatrix);
 
-        // Brightness
         ColorMatrix brightnessMatrix = new ColorMatrix();
         brightnessMatrix.set(new float[]{
                 1, 0, 0, 0, brightnessValue,
@@ -304,25 +342,49 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     }
 
     @SuppressLint("MissingPermission")
-    private void saveImage() {
-        mPhotoEditorView.getSource().setImageBitmap(adjustedBitmap != null ? adjustedBitmap : originalBitmap);
-        if (requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Gallery");
-            if (!file.exists()) file.mkdirs();
-            File finalFile = new File(file, System.currentTimeMillis() + ".png");
-            mPhotoEditor.saveAsFile(finalFile.getAbsolutePath(), new SaveSettings.Builder().build(), new PhotoEditor.OnSaveListener() {
-                @Override
-                public void onSuccess(@NonNull String imagePath) {
-                    Toast.makeText(ImageEditActivity.this, "Saved successfully!", Toast.LENGTH_SHORT).show();
-                    sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(new File(imagePath))));
-                    finish(); // Close activity after saving
-                }
-                @Override
-                public void onFailure(@NonNull Exception exception) {
-                    Toast.makeText(ImageEditActivity.this, "Failed to save: " + exception.getMessage(), Toast.LENGTH_SHORT).show();
-                }
-            });
+    private void saveImage(boolean overwrite) {
+        if (!requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            return;
         }
+
+        final String saveFilePath;
+        if (overwrite) {
+            saveFilePath = getRealPathFromURI(this, mOriginalImageUri);
+            if (saveFilePath == null) {
+                Toast.makeText(this, "Error: Could not find original file path to overwrite.", Toast.LENGTH_LONG).show();
+                return;
+            }
+        } else {
+            File folder = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Gallery");
+            if (!folder.exists() && !folder.mkdirs()) {
+                Toast.makeText(this, "Error: Could not create directory to save image.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            saveFilePath = new File(folder, System.currentTimeMillis() + ".png").getAbsolutePath();
+        }
+
+        SaveSettings saveSettings = new SaveSettings.Builder()
+                .setClearViewsEnabled(true)
+                .setTransparencyEnabled(false)
+                .build();
+
+        Toast.makeText(this, "Saving...", Toast.LENGTH_SHORT).show();
+
+        mPhotoEditor.saveAsFile(saveFilePath, saveSettings, new PhotoEditor.OnSaveListener() {
+            @Override
+            public void onSuccess(@NonNull String imagePath) {
+                Log.d(TAG, "Image saved successfully: " + imagePath);
+                Toast.makeText(ImageEditActivity.this, "Saved successfully!", Toast.LENGTH_SHORT).show();
+                sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(new File(imagePath))));
+                finish();
+            }
+
+            @Override
+            public void onFailure(@NonNull Exception exception) {
+                Log.e(TAG, "Failed to save image", exception);
+                Toast.makeText(ImageEditActivity.this, "Failed to save: " + exception.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     public boolean requestPermission(String permission) {
@@ -357,4 +419,54 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     @Override public void onStartViewChangeListener(ViewType viewType) {}
     @Override public void onStopViewChangeListener(ViewType viewType) {}
     @Override public void onTouchSourceImage(MotionEvent event) {}
+
+    // Helper methods for getting real path from URI
+    public static String getRealPathFromURI(final Context context, final Uri uri) {
+        if (DocumentsContract.isDocumentUri(context, uri)) {
+            if ("com.android.externalstorage.documents".equals(uri.getAuthority())) {
+                final String docId = DocumentsContract.getDocumentId(uri);
+                final String[] split = docId.split(":");
+                final String type = split[0];
+                if ("primary".equalsIgnoreCase(type)) {
+                    return Environment.getExternalStorageDirectory() + "/" + split[1];
+                }
+            } else if ("com.android.providers.downloads.documents".equals(uri.getAuthority())) {
+                final String id = DocumentsContract.getDocumentId(uri);
+                final Uri contentUri = ContentUris.withAppendedId(Uri.parse("content://downloads/public_downloads"), Long.parseLong(id));
+                return getDataColumn(context, contentUri, null, null);
+            } else if ("com.android.providers.media.documents".equals(uri.getAuthority())) {
+                final String docId = DocumentsContract.getDocumentId(uri);
+                final String[] split = docId.split(":");
+                final String type = split[0];
+                Uri contentUri = null;
+                if ("image".equals(type)) contentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+                else if ("video".equals(type)) contentUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+                else if ("audio".equals(type)) contentUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+                final String selection = "_id=?";
+                final String[] selectionArgs = new String[]{split[1]};
+                return getDataColumn(context, contentUri, selection, selectionArgs);
+            }
+        } else if ("content".equalsIgnoreCase(uri.getScheme())) {
+            return getDataColumn(context, uri, null, null);
+        } else if ("file".equalsIgnoreCase(uri.getScheme())) {
+            return uri.getPath();
+        }
+        return null;
+    }
+
+    public static String getDataColumn(Context context, Uri uri, String selection, String[] selectionArgs) {
+        Cursor cursor = null;
+        final String column = "_data";
+        final String[] projection = {column};
+        try {
+            cursor = context.getContentResolver().query(uri, projection, selection, selectionArgs, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                final int column_index = cursor.getColumnIndexOrThrow(column);
+                return cursor.getString(column_index);
+            }
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+        return null;
+    }
 }
