@@ -91,6 +91,12 @@
             android:configChanges="orientation|screenSize|screenLayout" />
 
         <activity
+            android:name=".WallpaperPreviewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Gallery.NoActionBar"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
+
+        <activity
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>

@@ -8,9 +8,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.app.WallpaperManager;
-import android.graphics.Bitmap;
-import android.graphics.drawable.Drawable; // NEW IMPORT
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -21,9 +18,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable; // NEW IMPORT
 import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -32,18 +27,16 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
-import com.bumptech.glide.Glide; // NEW IMPORT
-import com.bumptech.glide.request.target.CustomTarget; // NEW IMPORT
-import com.bumptech.glide.request.transition.Transition; // NEW IMPORT
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAdapter.PhotoTapListener {
+// REMOVED: android.app.WallpaperManager, android.graphics.Bitmap, etc. as they are moved to WallpaperPreviewActivity
 
+public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAdapter.PhotoTapListener {
+    // ... (class fields and trashResultLauncher remain the same) ...
     public static final String EXTRA_IMAGE_POSITION = "extra_image_position";
 
     private ViewPager2 viewPager;
@@ -65,6 +58,7 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
                     Toast.makeText(this, "Photo not moved to trash", Toast.LENGTH_SHORT).show();
                 }
             });
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -310,78 +304,31 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
             moveCurrentImage();
             return true;
         } else if (itemId == R.id.action_wallpaper) {
-            showSetWallpaperConfirmation();
+            // NEW: Launch the custom preview activity
+            launchWallpaperPreview();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    private void showSetWallpaperConfirmation() {
+    // NEW METHOD: Launch new Wallpaper Preview Activity
+    private void launchWallpaperPreview() {
         Image currentImage = getCurrentImage();
-        if (currentImage == null) return;
+        Uri imageUri = getCurrentImageUri();
+
+        if (currentImage == null || imageUri == null) return;
 
         if (currentImage.getMediaType() == Image.MEDIA_TYPE_VIDEO) {
             Toast.makeText(this, R.string.wallpaper_error, Toast.LENGTH_SHORT).show();
             return;
         }
 
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.dialog_wallpaper_title)
-                .setMessage(R.string.dialog_wallpaper_message)
-                .setPositiveButton(R.string.dialog_confirm_set, (dialog, which) -> {
-                    setCurrentImageAsWallpaper();
-                })
-                .setNegativeButton(R.string.dialog_cancel, (dialog, which) -> {
-                    dialog.dismiss();
-                })
-                .show();
+        Intent intent = new Intent(this, WallpaperPreviewActivity.class);
+        intent.putExtra(WallpaperPreviewActivity.EXTRA_IMAGE_URI, imageUri);
+        startActivity(intent);
     }
 
-    // REFACTORED: Uses Glide to reliably load the Bitmap asynchronously from the URI
-    private void setCurrentImageAsWallpaper() {
-        final Uri imageUri = getCurrentImageUri();
-        if (imageUri == null) {
-            Toast.makeText(this, "Cannot find image URI.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Check for video (safe redundancy)
-        Image currentImage = getCurrentImage();
-        if (currentImage != null && currentImage.getMediaType() == Image.MEDIA_TYPE_VIDEO) {
-            Toast.makeText(this, R.string.wallpaper_error, Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Use Glide to load the URI into a Bitmap asynchronously
-        Glide.with(this)
-                .asBitmap()
-                .load(imageUri)
-                .into(new CustomTarget<Bitmap>() {
-                    @Override
-                    public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
-                        try {
-                            WallpaperManager wallpaperManager = WallpaperManager.getInstance(getApplicationContext());
-                            wallpaperManager.setBitmap(resource);
-                            Toast.makeText(PhotoViewActivity.this, "Wallpaper set successfully!", Toast.LENGTH_SHORT).show();
-                        } catch (IOException e) {
-                            Toast.makeText(PhotoViewActivity.this, "Failed to set wallpaper: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                        } catch (Exception e) {
-                            Toast.makeText(PhotoViewActivity.this, "An unexpected error occurred while setting wallpaper.", Toast.LENGTH_LONG).show();
-                        }
-                    }
-
-                    @Override
-                    public void onLoadCleared(@Nullable Drawable placeholder) {
-                        // This is called when the request is cleared, do nothing
-                    }
-
-                    @Override
-                    public void onLoadFailed(@Nullable Drawable errorDrawable) {
-                        super.onLoadFailed(errorDrawable);
-                        Toast.makeText(PhotoViewActivity.this, "Failed to load image for wallpaper.", Toast.LENGTH_LONG).show();
-                    }
-                });
-    }
+    // REMOVED: showSetWallpaperConfirmation() and setCurrentImageAsWallpaper() methods (moved logic to WallpaperPreviewActivity)
 
     private void showImageDetails() {
         Uri imageUri = getCurrentImageUri();
