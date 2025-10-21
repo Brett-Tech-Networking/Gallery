@@ -31,6 +31,7 @@ import com.bretttech.gallery.ImageDataHolder;
 import com.bretttech.gallery.PhotoViewActivity;
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.VideoPlayerActivity;
+import com.bretttech.gallery.WallpaperPreviewActivity;
 import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.databinding.FragmentAlbumDetailBinding;
 import com.bretttech.gallery.ui.pictures.Image;
@@ -197,7 +198,16 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
             trashMediaItems(uris);
             mode.finish();
         } else if (itemId == R.id.action_set_wallpaper) {
-            if (selectedImages.size() == 1) setWallpaper(selectedImages.get(0));
+            if (selectedImages.size() == 1) {
+                Image selectedImage = selectedImages.get(0);
+                if (selectedImage.getMediaType() == Image.MEDIA_TYPE_VIDEO) {
+                    Toast.makeText(getContext(), R.string.wallpaper_error, Toast.LENGTH_SHORT).show();
+                } else {
+                    Intent intent = new Intent(getContext(), WallpaperPreviewActivity.class);
+                    intent.putExtra(WallpaperPreviewActivity.EXTRA_IMAGE_URI, selectedImage.getUri());
+                    startActivity(intent);
+                }
+            }
             mode.finish();
         } else if (itemId == R.id.action_move_to_album) {
             MoveToAlbumDialogFragment.newInstance(uris, false).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
@@ -266,20 +276,6 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
             }
         } catch (Exception e) {
             Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-
-
-    private void setWallpaper(Image image) {
-        if (image.isVideo()) {
-            Toast.makeText(getContext(), R.string.wallpaper_error, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        try (InputStream inputStream = requireContext().getContentResolver().openInputStream(image.getUri())) {
-            WallpaperManager.getInstance(getContext()).setStream(inputStream);
-            Toast.makeText(getContext(), "Wallpaper set successfully!", Toast.LENGTH_LONG).show();
-        } catch (IOException e) {
-            Toast.makeText(getContext(), "Failed to set wallpaper: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
