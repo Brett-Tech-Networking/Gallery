@@ -61,4 +61,9 @@
     <string name="setting_animation_slide">Slide In/Out</string>
     <string name="setting_animation_fly">Fly In/Out</string>
     <string name="setting_animation_fade">Pixel In/Out (Fade)</string>
+
+    <string name="dialog_wallpaper_title">Set Wallpaper</string>
+    <string name="dialog_wallpaper_message">Do you want to set this image as your device wallpaper?</string>
+    <string name="dialog_confirm_set">Set</string>
+    <string name="dialog_cancel">Cancel</string>
 </resources>

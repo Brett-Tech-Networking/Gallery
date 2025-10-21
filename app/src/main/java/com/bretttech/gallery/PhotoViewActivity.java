@@ -8,6 +8,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.app.WallpaperManager;
+import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable; // NEW IMPORT
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -18,7 +21,9 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable; // NEW IMPORT
 import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -27,7 +32,11 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
+import com.bumptech.glide.Glide; // NEW IMPORT
+import com.bumptech.glide.request.target.CustomTarget; // NEW IMPORT
+import com.bumptech.glide.request.transition.Transition; // NEW IMPORT
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -103,18 +112,9 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
             }
         });
 
-        // UPDATED: Apply Animation for Activity entry
         applyActivityTransition(false);
     }
 
-    // UPDATED: Override finish() to apply reverse animation
-    @Override
-    public void finish() {
-        super.finish();
-        applyActivityTransition(true);
-    }
-
-    // NEW METHOD to handle animation logic
     private void applyActivityTransition(boolean isExiting) {
         String animationType = SettingsActivity.getAnimationType(this);
         int enterAnim = 0;
@@ -147,6 +147,11 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         }
     }
 
+    @Override
+    public void finish() {
+        super.finish();
+        applyActivityTransition(true);
+    }
 
     private void setupButtonListeners() {
         findViewById(R.id.button_share).setOnClickListener(v -> shareCurrentImage());
@@ -304,8 +309,78 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         } else if (itemId == R.id.action_move) {
             moveCurrentImage();
             return true;
+        } else if (itemId == R.id.action_wallpaper) {
+            showSetWallpaperConfirmation();
+            return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void showSetWallpaperConfirmation() {
+        Image currentImage = getCurrentImage();
+        if (currentImage == null) return;
+
+        if (currentImage.getMediaType() == Image.MEDIA_TYPE_VIDEO) {
+            Toast.makeText(this, R.string.wallpaper_error, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.dialog_wallpaper_title)
+                .setMessage(R.string.dialog_wallpaper_message)
+                .setPositiveButton(R.string.dialog_confirm_set, (dialog, which) -> {
+                    setCurrentImageAsWallpaper();
+                })
+                .setNegativeButton(R.string.dialog_cancel, (dialog, which) -> {
+                    dialog.dismiss();
+                })
+                .show();
+    }
+
+    // REFACTORED: Uses Glide to reliably load the Bitmap asynchronously from the URI
+    private void setCurrentImageAsWallpaper() {
+        final Uri imageUri = getCurrentImageUri();
+        if (imageUri == null) {
+            Toast.makeText(this, "Cannot find image URI.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Check for video (safe redundancy)
+        Image currentImage = getCurrentImage();
+        if (currentImage != null && currentImage.getMediaType() == Image.MEDIA_TYPE_VIDEO) {
+            Toast.makeText(this, R.string.wallpaper_error, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Use Glide to load the URI into a Bitmap asynchronously
+        Glide.with(this)
+                .asBitmap()
+                .load(imageUri)
+                .into(new CustomTarget<Bitmap>() {
+                    @Override
+                    public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                        try {
+                            WallpaperManager wallpaperManager = WallpaperManager.getInstance(getApplicationContext());
+                            wallpaperManager.setBitmap(resource);
+                            Toast.makeText(PhotoViewActivity.this, "Wallpaper set successfully!", Toast.LENGTH_SHORT).show();
+                        } catch (IOException e) {
+                            Toast.makeText(PhotoViewActivity.this, "Failed to set wallpaper: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        } catch (Exception e) {
+                            Toast.makeText(PhotoViewActivity.this, "An unexpected error occurred while setting wallpaper.", Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onLoadCleared(@Nullable Drawable placeholder) {
+                        // This is called when the request is cleared, do nothing
+                    }
+
+                    @Override
+                    public void onLoadFailed(@Nullable Drawable errorDrawable) {
+                        super.onLoadFailed(errorDrawable);
+                        Toast.makeText(PhotoViewActivity.this, "Failed to load image for wallpaper.", Toast.LENGTH_LONG).show();
+                    }
+                });
     }
 
     private void showImageDetails() {
