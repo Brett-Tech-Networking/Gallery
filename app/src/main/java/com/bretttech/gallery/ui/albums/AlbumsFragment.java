@@ -37,11 +37,13 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
+import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.SharedViewModel;
+import com.bretttech.gallery.SettingsActivity;
 import com.bretttech.gallery.ui.pictures.Image;
 import java.io.File;
 import java.util.ArrayList;
@@ -265,7 +267,37 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
         NavController navController = NavHostFragment.findNavController(this);
         Bundle bundle = new Bundle();
         bundle.putString("albumFolderPath", album.getFolderPath());
-        navController.navigate(R.id.action_navigation_albums_to_albumDetailFragment, bundle);
+
+        // UPDATED: Dynamically select and apply NavOptions based on animation preference
+        NavOptions navOptions = null;
+        String animationType = SettingsActivity.getAnimationType(requireContext());
+
+        if (animationType.equals(SettingsActivity.ANIMATION_SLIDE)) {
+            navOptions = new NavOptions.Builder()
+                    .setEnterAnim(R.anim.slide_in_right)
+                    .setExitAnim(R.anim.slide_out_left)
+                    .setPopEnterAnim(R.anim.slide_in_left)
+                    .setPopExitAnim(R.anim.slide_out_right)
+                    .build();
+        } else if (animationType.equals(SettingsActivity.ANIMATION_FLY)) {
+            navOptions = new NavOptions.Builder()
+                    .setEnterAnim(R.anim.fly_in_up)
+                    .setExitAnim(R.anim.fly_out_down)
+                    .setPopEnterAnim(R.anim.fly_in_down)
+                    .setPopExitAnim(R.anim.fly_out_up)
+                    .build();
+        } else if (animationType.equals(SettingsActivity.ANIMATION_FADE)) {
+            // Pixel In/Out (Fade/Crossfade)
+            navOptions = new NavOptions.Builder()
+                    .setEnterAnim(R.anim.fade_in)
+                    .setExitAnim(R.anim.fade_out)
+                    .setPopEnterAnim(R.anim.fade_in)
+                    .setPopExitAnim(R.anim.fade_out)
+                    .build();
+        }
+
+        // If animationType is ANIMATION_OFF, navOptions remains null and default transition is used.
+        navController.navigate(R.id.action_navigation_albums_to_albumDetailFragment, bundle, navOptions);
     }
 
     @Override

@@ -56,5 +56,9 @@
     <string name="title_settings">Settings</string>
 
     <string name="title_favorites">Favorites</string>
-
+    <string name="settings_animation">Navigation Animations</string>
+    <string name="setting_animation_off">Off (Default)</string>
+    <string name="setting_animation_slide">Slide In/Out</string>
+    <string name="setting_animation_fly">Fly In/Out</string>
+    <string name="setting_animation_fade">Pixel In/Out (Fade)</string>
 </resources>

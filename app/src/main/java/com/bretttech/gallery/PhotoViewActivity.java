@@ -102,7 +102,51 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
                 updateFavoriteButton();
             }
         });
+
+        // UPDATED: Apply Animation for Activity entry
+        applyActivityTransition(false);
     }
+
+    // UPDATED: Override finish() to apply reverse animation
+    @Override
+    public void finish() {
+        super.finish();
+        applyActivityTransition(true);
+    }
+
+    // NEW METHOD to handle animation logic
+    private void applyActivityTransition(boolean isExiting) {
+        String animationType = SettingsActivity.getAnimationType(this);
+        int enterAnim = 0;
+        int exitAnim = 0;
+
+        if (animationType.equals(SettingsActivity.ANIMATION_SLIDE)) {
+            if (isExiting) {
+                enterAnim = R.anim.slide_in_left;
+                exitAnim = R.anim.slide_out_right;
+            } else {
+                enterAnim = R.anim.slide_in_right;
+                exitAnim = R.anim.slide_out_left;
+            }
+        } else if (animationType.equals(SettingsActivity.ANIMATION_FLY)) {
+            if (isExiting) {
+                enterAnim = R.anim.fly_in_down;
+                exitAnim = R.anim.fly_out_up;
+            } else {
+                enterAnim = R.anim.fly_in_up;
+                exitAnim = R.anim.fly_out_down;
+            }
+        } else if (animationType.equals(SettingsActivity.ANIMATION_FADE)) {
+            // Pixel In/Out (Fade/Crossfade)
+            enterAnim = R.anim.fade_in;
+            exitAnim = R.anim.fade_out;
+        }
+
+        if (enterAnim != 0 || exitAnim != 0) {
+            overridePendingTransition(enterAnim, exitAnim);
+        }
+    }
+
 
     private void setupButtonListeners() {
         findViewById(R.id.button_share).setOnClickListener(v -> shareCurrentImage());
