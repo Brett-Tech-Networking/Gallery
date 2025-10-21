@@ -14,6 +14,7 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
@@ -30,6 +31,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ActivityMainBinding binding;
     private NavController navController;
+    private boolean isNavigatingWithinApp = false;
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -71,6 +73,35 @@ public class MainActivity extends AppCompatActivity {
         NavigationUI.setupWithNavController(binding.navView, navController);
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // App leaving focus — trigger lock if leaving app
+        if (!isNavigatingWithinApp && !GalleryApplication.isAppInForeground) {
+            GalleryApplication.isSecureFolderUnlocked = false;
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // If user left and came back → force lock check
+        isNavigatingWithinApp = false;
+
+        if (!GalleryApplication.isAppInForeground ||
+                !GalleryApplication.isSecureFolderUnlocked) {
+            // Immediately force lock secure folder when returning
+            GalleryApplication.isSecureFolderUnlocked = false;
+
+            // Navigate to your secure folder lock screen here
+            // Example:
+            // navController.navigate(R.id.navigation_secure_folder_lock);
+
+            // Or just show your unlock dialog again
+        }
+    }
+
     private void applyBottomNavColor(BottomNavigationView navView) {
         SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
         try {
@@ -80,8 +111,6 @@ public class MainActivity extends AppCompatActivity {
                 navView.setItemTextColor(ColorStateList.valueOf(color));
             }
         } catch (ClassCastException e) {
-            // This will happen if the old preference was a string.
-            // We can clear the old preference and let the user select a new color.
             prefs.edit().remove(SettingsActivity.KEY_BOTTOM_NAV_COLOR).apply();
         }
     }

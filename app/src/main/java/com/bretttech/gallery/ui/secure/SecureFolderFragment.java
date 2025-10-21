@@ -26,6 +26,7 @@ import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 
+import com.bretttech.gallery.GalleryApplication;
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.auth.BiometricAuthManager;
 import com.bretttech.gallery.databinding.FragmentSecureFolderBinding;
@@ -48,7 +49,6 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
     private androidx.appcompat.view.ActionMode actionMode;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
-
     private final ActivityResultLauncher<Intent> pinSetupLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
@@ -61,6 +61,7 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
     private final ActivityResultLauncher<Intent> pinEntryLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
+                    GalleryApplication.isSecureFolderUnlocked = true;
                     loadContent();
                 } else {
                     navController.popBackStack();
@@ -74,7 +75,6 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
                     Toast.makeText(getContext(), "Cover photo changed!", Toast.LENGTH_SHORT).show();
                 }
             });
-
 
     @Nullable
     @Override
@@ -90,7 +90,12 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
         });
 
         setHasOptionsMenu(true);
-        authenticate();
+
+        if (GalleryApplication.isSecureFolderUnlocked) {
+            loadContent();
+        } else {
+            authenticate();
+        }
 
         return binding.getRoot();
     }
@@ -114,47 +119,40 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
     private void authenticate() {
         SharedPreferences prefs = requireActivity().getSharedPreferences("secure_folder_prefs", Context.MODE_PRIVATE);
 
-        // 1. If no PIN is set up at all, force setup first.
         if (!prefs.contains("pin_hash")) {
             pinSetupLauncher.launch(new Intent(getContext(), PinSetupActivity.class));
             return;
         }
 
-        // 2. Check if user has biometrics enabled in app settings.
         boolean useBiometrics = prefs.getBoolean("biometrics_enabled", true);
 
         if (useBiometrics) {
-            // 3. Attempt biometric authentication. Fall back to PIN on error/failure.
             new BiometricAuthManager((AppCompatActivity) requireActivity(), new BiometricAuthManager.BiometricAuthListener() {
                 @Override
                 public void onAuthSuccess() {
+                    GalleryApplication.isSecureFolderUnlocked = true;
                     loadContent();
                 }
 
                 @Override
                 public void onAuthError(String errString) {
-                    // Biometric error (e.g., canceled), fall back to PIN entry.
                     pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
                 }
 
                 @Override
                 public void onAuthFailed() {
-                    // Explicit failure (e.g., wrong fingerprint), let the user try again or cancel.
                     Toast.makeText(getContext(), "Authentication failed", Toast.LENGTH_SHORT).show();
                 }
 
                 @Override
                 public void onNoSecurityEnrolled() {
-                    // No biometrics on device, go straight to PIN entry.
                     pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
                 }
             }).authenticate();
         } else {
-            // 4. Biometrics are disabled in settings, so go directly to PIN entry.
             pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
         }
     }
-
 
     private void loadContent() {
         secureFolderViewModel.loadAlbumsFromSecureFolder();
@@ -195,7 +193,6 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
             }
         }
     }
-
 
     private void openAlbum(Album album) {
         Bundle bundle = new Bundle();
@@ -320,5 +317,19 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
     public void onDestroyActionMode(androidx.appcompat.view.ActionMode mode) {
         actionMode = null;
         albumsAdapter.clearSelection();
+    }
+
+    // -----------------------------
+    // 🔒 ADD THIS SECTION FOR AUTO-LOCK
+    // -----------------------------
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        // If user left app and came back, force re-auth if unlocked flag is false
+        if (!GalleryApplication.isAppInForeground || !GalleryApplication.isSecureFolderUnlocked) {
+            GalleryApplication.isSecureFolderUnlocked = false;
+            authenticate();
+        }
     }
 }
