@@ -25,6 +25,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.bretttech.gallery.data.FavoritesManager;
@@ -50,6 +51,7 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
     private ImageButton favoriteButton;
     private FavoritesManager favoritesManager;
     private ActivityResultLauncher<Intent> editImageLauncher;
+    private SharedViewModel sharedViewModel; // Added for communication
 
 
     private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher =
@@ -69,6 +71,7 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         setContentView(R.layout.activity_photo_view);
 
         isSecureMode = getIntent().getBooleanExtra("isSecure", false);
+        sharedViewModel = new ViewModelProvider(this).get(SharedViewModel.class); // Initialize SharedViewModel
 
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
@@ -109,12 +112,18 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
             }
         });
 
+        // Correctly register the launcher and handle the result
         editImageLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    int currentItem = viewPager.getCurrentItem();
-                    if (adapter != null) {
-                        adapter.notifyItemChanged(currentItem);
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        // Notify the SharedViewModel that a refresh is needed
+                        sharedViewModel.requestRefresh();
+                        int currentItem = viewPager.getCurrentItem();
+                        if (adapter != null) {
+                            // This tells the ViewPager's adapter to reload the current image
+                            adapter.notifyItemChanged(currentItem);
+                        }
                     }
                 });
 

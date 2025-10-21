@@ -13,7 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bretttech.gallery.R;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.signature.ObjectKey; // NEW IMPORT
+import com.bumptech.glide.signature.ObjectKey;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,15 +104,14 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
 
             Uri coverUri = album.getCoverImageUri();
             if (coverUri != null) {
-                // NEW/MODIFIED: Use cacheBusterId in the signature to force Glide to reload
-                // The signature changes every time setAlbumCover is called, ensuring cache bust.
+                // MODIFIED: This forces Glide to ignore its cache and reload the cover image
                 ObjectKey cacheSignature = new ObjectKey(album.getFolderPath() + "_" + album.getCacheBusterId());
 
                 Glide.with(itemView.getContext())
                         .load(coverUri)
-                        .signature(cacheSignature) // NEW: Force cache bust
-                        .diskCacheStrategy(DiskCacheStrategy.RESOURCE) // Use RESOURCE strategy with a unique signature
-                        .skipMemoryCache(false)
+                        .signature(cacheSignature)
+                        .diskCacheStrategy(DiskCacheStrategy.NONE) // Force reload from disk
+                        .skipMemoryCache(true) // Don't use memory cache
                         .centerCrop()
                         .placeholder(R.drawable.ic_album_placeholder)
                         .into(albumCover);

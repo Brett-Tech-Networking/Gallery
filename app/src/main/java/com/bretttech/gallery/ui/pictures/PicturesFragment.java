@@ -17,6 +17,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -28,13 +29,16 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
+
 import com.bretttech.gallery.ImageDataHolder;
 import com.bretttech.gallery.PhotoViewActivity;
 import com.bretttech.gallery.R;
+import com.bretttech.gallery.SharedViewModel;
 import com.bretttech.gallery.VideoPlayerActivity;
 import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.databinding.FragmentPicturesBinding;
 import com.bretttech.gallery.ui.albums.AlbumsViewModel;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -48,6 +52,7 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
     private androidx.appcompat.view.ActionMode actionMode;
     private AlbumsViewModel albumsViewModel;
     private FavoritesManager favoritesManager;
+    private SharedViewModel sharedViewModel; // Added for communication
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -71,9 +76,10 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setHasOptionsMenu(true); // Enable menu for this fragment
+        setHasOptionsMenu(true);
         albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
         favoritesManager = new FavoritesManager(requireContext());
+        sharedViewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class); // Initialize SharedViewModel
 
         getParentFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this, (requestKey, bundle) -> {
             boolean success = bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS);
@@ -99,6 +105,15 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
         picturesViewModel.getImages().observe(getViewLifecycleOwner(), images -> {
             this.images = images;
             picturesAdapter.setImages(images);
+        });
+
+        // Listen for refresh requests from other parts of the app
+        sharedViewModel.getRefreshRequest().observe(getViewLifecycleOwner(), event -> {
+            if (event.getContentIfNotHandled() != null) {
+                if (actionMode == null) {
+                    picturesViewModel.loadImages();
+                }
+            }
         });
 
         requestStoragePermission();
@@ -240,7 +255,7 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
         Intent shareIntent = new Intent();
         shareIntent.setAction(Intent.ACTION_SEND_MULTIPLE);
         shareIntent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, new ArrayList<>(uris));
-        shareIntent.setType("*/*"); // Handle both images and videos
+        shareIntent.setType("*/*");
         shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
         startActivity(Intent.createChooser(shareIntent, "Share to..."));

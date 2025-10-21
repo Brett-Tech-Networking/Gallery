@@ -5,33 +5,28 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-
 import com.bretttech.gallery.R;
-import com.bretttech.gallery.databinding.ItemPictureBinding;
 import com.bumptech.glide.Glide;
-
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.signature.ObjectKey;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.PictureViewHolder> {
 
     private List<Image> images = new ArrayList<>();
+    private final OnImageClickListener clickListener;
+    private final OnImageClickListener longClickListener;
     private final List<Image> selectedImages = new ArrayList<>();
-    private final OnPictureClickListener clickListener;
-    private final OnPictureLongClickListener longClickListener;
 
-    public interface OnPictureClickListener {
-        void onPictureClick(Image image);
+    public interface OnImageClickListener {
+        void onImageClick(Image image);
     }
 
-    public interface OnPictureLongClickListener {
-        void onPictureLongClick(Image image);
-    }
-
-    public PicturesAdapter(OnPictureClickListener clickListener, OnPictureLongClickListener longClickListener) {
+    public PicturesAdapter(OnImageClickListener clickListener, OnImageClickListener longClickListener) {
         this.clickListener = clickListener;
         this.longClickListener = longClickListener;
     }
@@ -39,35 +34,31 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
     @NonNull
     @Override
     public PictureViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        ItemPictureBinding binding = ItemPictureBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false);
-        return new PictureViewHolder(binding);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_picture, parent, false);
+        return new PictureViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull PictureViewHolder holder, int position) {
         Image image = images.get(position);
-        Uri uri = image.getUri();
 
+        // MODIFIED: This forces Glide to ignore its cache and reload the thumbnail from disk
         Glide.with(holder.imageView.getContext())
-                .load(uri)
-                .centerCrop()
+                .load(image.getUri())
+                .diskCacheStrategy(DiskCacheStrategy.NONE)
+                .skipMemoryCache(true)
+                .signature(new ObjectKey(String.valueOf(System.currentTimeMillis())))
                 .into(holder.imageView);
 
-        holder.videoIndicator.setVisibility(image.isVideo() ? View.VISIBLE : View.GONE);
-        holder.selectionOverlay.setVisibility(selectedImages.contains(image) ? View.VISIBLE : View.GONE);
-
-        holder.itemView.setOnClickListener(v -> {
-            if (clickListener != null) {
-                clickListener.onPictureClick(image);
-            }
-        });
-
+        holder.itemView.setOnClickListener(v -> clickListener.onImageClick(image));
         holder.itemView.setOnLongClickListener(v -> {
-            if (longClickListener != null) {
-                longClickListener.onPictureLongClick(image);
-            }
+            longClickListener.onImageClick(image);
             return true;
         });
+
+        holder.itemView.setActivated(selectedImages.contains(image));
+        holder.videoIndicator.setVisibility(image.isVideo() ? View.VISIBLE : View.GONE);
+
     }
 
     @Override
@@ -76,39 +67,9 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
     }
 
     public void setImages(List<Image> images) {
-        this.images.clear();
-        if (images != null) {
-            this.images.addAll(images);
-        }
+        this.images = images;
         notifyDataSetChanged();
     }
-
-    /**
-     * Removes a list of images from the adapter based on their URIs and notifies the RecyclerView.
-     * This provides an immediate visual update.
-     * @param urisToRemove The list of URIs for the images to be removed.
-     */
-    public void removeImagesByUri(List<Uri> urisToRemove) {
-        if (urisToRemove == null || urisToRemove.isEmpty() || this.images.isEmpty()) {
-            return;
-        }
-
-        List<Image> itemsToRemove = new ArrayList<>();
-        for (Uri uri : urisToRemove) {
-            for (Image image : this.images) {
-                if (image.getUri().equals(uri)) {
-                    itemsToRemove.add(image);
-                    break;
-                }
-            }
-        }
-
-        if (!itemsToRemove.isEmpty()) {
-            this.images.removeAll(itemsToRemove);
-            notifyDataSetChanged(); // Use notifyDataSetChanged for simplicity and robustness here.
-        }
-    }
-
 
     public void toggleSelection(Image image) {
         if (selectedImages.contains(image)) {
@@ -119,25 +80,33 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
         notifyDataSetChanged();
     }
 
+    public List<Image> getSelectedImages() {
+        return selectedImages;
+    }
+
     public void clearSelection() {
         selectedImages.clear();
         notifyDataSetChanged();
     }
 
-    public List<Image> getSelectedImages() {
-        return new ArrayList<>(selectedImages);
+    // NEW: Added the missing method back to fix the compilation error
+    public void removeImagesByUri(List<Uri> movedUris) {
+        List<Image> imagesToRemove = images.stream()
+                .filter(image -> movedUris.contains(image.getUri()))
+                .collect(Collectors.toList());
+        images.removeAll(imagesToRemove);
+        notifyDataSetChanged();
     }
 
     static class PictureViewHolder extends RecyclerView.ViewHolder {
         ImageView imageView;
         ImageView videoIndicator;
-        View selectionOverlay;
 
-        PictureViewHolder(ItemPictureBinding binding) {
-            super(binding.getRoot());
-            imageView = binding.imageView;
-            videoIndicator = binding.videoIndicator;
-            selectionOverlay = binding.selectionOverlay;
+
+        PictureViewHolder(View itemView) {
+            super(itemView);
+            imageView = itemView.findViewById(R.id.image_view);
+            videoIndicator = itemView.findViewById(R.id.video_indicator);
         }
     }
 }
