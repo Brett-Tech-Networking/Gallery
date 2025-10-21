@@ -1,12 +1,11 @@
 package com.bretttech.gallery;
 
-import android.Manifest;
-import android.annotation.SuppressLint;
-import android.content.ContentUris;
-import android.content.Context;
+import android.app.Activity;
+import android.app.RecoverableSecurityException;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.database.Cursor;
+import android.content.IntentSender;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -19,7 +18,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -31,11 +29,12 @@ import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.exifinterface.media.ExifInterface;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -47,13 +46,16 @@ import com.bretttech.gallery.text.TextEditorDialogFragment;
 import com.yalantis.ucrop.UCrop;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import ja.burhanrashid52.photoeditor.OnPhotoEditorListener;
+import ja.burhanrashid52.photoeditor.OnSaveBitmap;
 import ja.burhanrashid52.photoeditor.PhotoEditor;
 import ja.burhanrashid52.photoeditor.PhotoEditorView;
 import ja.burhanrashid52.photoeditor.PhotoFilter;
@@ -64,7 +66,6 @@ import ja.burhanrashid52.photoeditor.ViewType;
 public class ImageEditActivity extends AppCompatActivity implements OnPhotoEditorListener, View.OnClickListener, FilterListener {
 
     public static final String EXTRA_IMAGE_URI = "extra_image_uri";
-    public static final int READ_WRITE_STORAGE = 52;
     private static final String TAG = "ImageEditActivity";
 
     private PhotoEditor mPhotoEditor;
@@ -83,12 +84,12 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     private RecyclerView adjustmentsRecyclerView;
     private SeekBar adjustmentSeekBar;
     private TextView sliderValueText;
-    private TextView adjustLabel;
 
     private String currentAdjustmentType = "Brightness";
     private float brightnessValue = 0f;
     private float contrastValue = 1f;
     private float saturationValue = 1f;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private final ActivityResultLauncher<Intent> uCropLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
         if (result.getResultCode() == RESULT_OK && result.getData() != null) {
@@ -102,6 +103,17 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
             Toast.makeText(this, "Crop error: " + cropError, Toast.LENGTH_SHORT).show();
         }
     });
+
+    private final ActivityResultLauncher<IntentSenderRequest> overwriteResultLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
+                if (result.getResultCode() == Activity.RESULT_OK) {
+                    Log.d(TAG, "Overwrite permission granted. Retrying save.");
+                    saveImage(true);
+                } else {
+                    Log.d(TAG, "Overwrite permission denied.");
+                    Toast.makeText(this, "Permission to overwrite denied. Try saving as a new image.", Toast.LENGTH_SHORT).show();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -134,7 +146,6 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         adjustmentsRecyclerView = adjustToolsPanel.findViewById(R.id.adjustments_recycler_view);
         adjustmentSeekBar = adjustToolsPanel.findViewById(R.id.adjustment_seekbar);
         sliderValueText = adjustToolsPanel.findViewById(R.id.slider_value_text);
-        adjustLabel = adjustToolsPanel.findViewById(R.id.adjust_title);
 
         filterRecyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
     }
@@ -341,59 +352,101 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         });
     }
 
-    @SuppressLint("MissingPermission")
     private void saveImage(boolean overwrite) {
-        if (!requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-            return;
-        }
-
-        final String saveFilePath;
-        if (overwrite) {
-            saveFilePath = getRealPathFromURI(this, mOriginalImageUri);
-            if (saveFilePath == null) {
-                Toast.makeText(this, "Error: Could not find original file path to overwrite.", Toast.LENGTH_LONG).show();
-                return;
-            }
-        } else {
-            File folder = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Gallery");
-            if (!folder.exists() && !folder.mkdirs()) {
-                Toast.makeText(this, "Error: Could not create directory to save image.", Toast.LENGTH_LONG).show();
-                return;
-            }
-            saveFilePath = new File(folder, System.currentTimeMillis() + ".png").getAbsolutePath();
-        }
+        Log.d(TAG, "saveImage called. Overwrite: " + overwrite);
+        Toast.makeText(this, "Saving...", Toast.LENGTH_SHORT).show();
 
         SaveSettings saveSettings = new SaveSettings.Builder()
-                .setClearViewsEnabled(true)
+                .setClearViewsEnabled(false) // This is the critical change
                 .setTransparencyEnabled(false)
                 .build();
 
-        Toast.makeText(this, "Saving...", Toast.LENGTH_SHORT).show();
-
-        mPhotoEditor.saveAsFile(saveFilePath, saveSettings, new PhotoEditor.OnSaveListener() {
+        mPhotoEditor.saveAsBitmap(saveSettings, new OnSaveBitmap() {
             @Override
-            public void onSuccess(@NonNull String imagePath) {
-                Log.d(TAG, "Image saved successfully: " + imagePath);
-                Toast.makeText(ImageEditActivity.this, "Saved successfully!", Toast.LENGTH_SHORT).show();
-                sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(new File(imagePath))));
-                finish();
+            public void onBitmapReady(Bitmap saveBitmap) {
+                Log.d(TAG, "onBitmapReady: Bitmap received.");
+                executor.execute(() -> {
+                    if (overwrite) {
+                        saveBitmapToUri(mOriginalImageUri, saveBitmap);
+                    } else {
+                        saveBitmapAsNew(saveBitmap);
+                    }
+                });
             }
 
             @Override
-            public void onFailure(@NonNull Exception exception) {
-                Log.e(TAG, "Failed to save image", exception);
-                Toast.makeText(ImageEditActivity.this, "Failed to save: " + exception.getMessage(), Toast.LENGTH_SHORT).show();
+            public void onFailure(Exception e) {
+                Log.e(TAG, "Failed to save bitmap", e);
+                runOnUiThread(() -> Toast.makeText(ImageEditActivity.this, "Failed to save image.", Toast.LENGTH_SHORT).show());
             }
         });
     }
 
-    public boolean requestPermission(String permission) {
-        if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{permission}, READ_WRITE_STORAGE);
-            return false;
+    private void saveBitmapToUri(Uri uri, Bitmap bitmapToSave) {
+        try {
+            ContentResolver resolver = getContentResolver();
+            try (OutputStream stream = resolver.openOutputStream(uri)) {
+                if (stream != null) {
+                    bitmapToSave.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                    Log.d(TAG, "Bitmap saved to URI: " + uri);
+                } else {
+                    throw new IOException("Failed to get output stream.");
+                }
+            }
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Images.Media.DATE_MODIFIED, System.currentTimeMillis() / 1000);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.put(MediaStore.Images.Media.IS_PENDING, 0);
+            }
+            resolver.update(uri, values, null, null);
+
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Saved successfully!", Toast.LENGTH_SHORT).show();
+                finish();
+            });
+
+        } catch (IOException e) {
+            Log.e(TAG, "Error saving bitmap to URI: " + uri, e);
+            runOnUiThread(() -> Toast.makeText(this, "Failed to save: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+        } catch (SecurityException e) {
+            Log.e(TAG, "Security error saving bitmap to URI: " + uri, e);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                handleRecoverableSecurityException(e, uri);
+            } else {
+                runOnUiThread(() -> Toast.makeText(this, "A security error occurred.", Toast.LENGTH_SHORT).show());
+            }
         }
-        return true;
     }
+
+
+    private void saveBitmapAsNew(Bitmap bitmap) {
+        ContentResolver resolver = getContentResolver();
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "IMG_" + System.currentTimeMillis() + ".png");
+        contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/png");
+        contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + File.separator + "Gallery");
+
+        Uri imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues);
+        if (imageUri != null) {
+            saveBitmapToUri(imageUri, bitmap);
+        } else {
+            Log.e(TAG, "Failed to create new MediaStore entry.");
+            runOnUiThread(() -> Toast.makeText(this, "Failed to create new image file.", Toast.LENGTH_SHORT).show());
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.Q)
+    private void handleRecoverableSecurityException(SecurityException e, Uri uriToModify) {
+        if (e instanceof RecoverableSecurityException) {
+            RecoverableSecurityException rse = (RecoverableSecurityException) e;
+            IntentSender intentSender = rse.getUserAction().getActionIntent().getIntentSender();
+            IntentSenderRequest request = new IntentSenderRequest.Builder(intentSender).build();
+            runOnUiThread(() -> overwriteResultLauncher.launch(request));
+        } else {
+            runOnUiThread(() -> Toast.makeText(this, "A security error occurred.", Toast.LENGTH_SHORT).show());
+        }
+    }
+
 
     private void startCrop(@NonNull Uri uri) {
         String destFileName = "CroppedImage.jpg";
@@ -419,54 +472,4 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     @Override public void onStartViewChangeListener(ViewType viewType) {}
     @Override public void onStopViewChangeListener(ViewType viewType) {}
     @Override public void onTouchSourceImage(MotionEvent event) {}
-
-    // Helper methods for getting real path from URI
-    public static String getRealPathFromURI(final Context context, final Uri uri) {
-        if (DocumentsContract.isDocumentUri(context, uri)) {
-            if ("com.android.externalstorage.documents".equals(uri.getAuthority())) {
-                final String docId = DocumentsContract.getDocumentId(uri);
-                final String[] split = docId.split(":");
-                final String type = split[0];
-                if ("primary".equalsIgnoreCase(type)) {
-                    return Environment.getExternalStorageDirectory() + "/" + split[1];
-                }
-            } else if ("com.android.providers.downloads.documents".equals(uri.getAuthority())) {
-                final String id = DocumentsContract.getDocumentId(uri);
-                final Uri contentUri = ContentUris.withAppendedId(Uri.parse("content://downloads/public_downloads"), Long.parseLong(id));
-                return getDataColumn(context, contentUri, null, null);
-            } else if ("com.android.providers.media.documents".equals(uri.getAuthority())) {
-                final String docId = DocumentsContract.getDocumentId(uri);
-                final String[] split = docId.split(":");
-                final String type = split[0];
-                Uri contentUri = null;
-                if ("image".equals(type)) contentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-                else if ("video".equals(type)) contentUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
-                else if ("audio".equals(type)) contentUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
-                final String selection = "_id=?";
-                final String[] selectionArgs = new String[]{split[1]};
-                return getDataColumn(context, contentUri, selection, selectionArgs);
-            }
-        } else if ("content".equalsIgnoreCase(uri.getScheme())) {
-            return getDataColumn(context, uri, null, null);
-        } else if ("file".equalsIgnoreCase(uri.getScheme())) {
-            return uri.getPath();
-        }
-        return null;
-    }
-
-    public static String getDataColumn(Context context, Uri uri, String selection, String[] selectionArgs) {
-        Cursor cursor = null;
-        final String column = "_data";
-        final String[] projection = {column};
-        try {
-            cursor = context.getContentResolver().query(uri, projection, selection, selectionArgs, null);
-            if (cursor != null && cursor.moveToFirst()) {
-                final int column_index = cursor.getColumnIndexOrThrow(column);
-                return cursor.getString(column_index);
-            }
-        } finally {
-            if (cursor != null) cursor.close();
-        }
-        return null;
-    }
 }

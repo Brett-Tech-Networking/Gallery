@@ -1,5 +1,6 @@
 package com.bretttech.gallery;
 
+import android.app.Activity;
 import android.app.RecoverableSecurityException;
 import android.content.ContentResolver;
 import android.content.Intent;
@@ -14,6 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.Toast;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -24,19 +26,18 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.viewpager2.widget.ViewPager2;
+
 import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// REMOVED: android.app.WallpaperManager, android.graphics.Bitmap, etc. as they are moved to WallpaperPreviewActivity
-
 public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAdapter.PhotoTapListener {
-    // ... (class fields and trashResultLauncher remain the same) ...
     public static final String EXTRA_IMAGE_POSITION = "extra_image_position";
 
     private ViewPager2 viewPager;
@@ -48,6 +49,8 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
     private boolean isSecureMode = false;
     private ImageButton favoriteButton;
     private FavoritesManager favoritesManager;
+    private ActivityResultLauncher<Intent> editImageLauncher;
+
 
     private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher =
             registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
@@ -106,6 +109,15 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
             }
         });
 
+        editImageLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    int currentItem = viewPager.getCurrentItem();
+                    if (adapter != null) {
+                        adapter.notifyItemChanged(currentItem);
+                    }
+                });
+
         applyActivityTransition(false);
     }
 
@@ -131,7 +143,6 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
                 exitAnim = R.anim.fly_out_down;
             }
         } else if (animationType.equals(SettingsActivity.ANIMATION_FADE)) {
-            // Pixel In/Out (Fade/Crossfade)
             enterAnim = R.anim.fade_in;
             exitAnim = R.anim.fade_out;
         }
@@ -215,7 +226,7 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         }
         Intent intent = new Intent(this, ImageEditActivity.class);
         intent.putExtra(ImageEditActivity.EXTRA_IMAGE_URI, imageUri);
-        startActivity(intent);
+        editImageLauncher.launch(intent);
     }
 
     private void updateFavoriteButton() {
@@ -304,14 +315,12 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
             moveCurrentImage();
             return true;
         } else if (itemId == R.id.action_wallpaper) {
-            // NEW: Launch the custom preview activity
             launchWallpaperPreview();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    // NEW METHOD: Launch new Wallpaper Preview Activity
     private void launchWallpaperPreview() {
         Image currentImage = getCurrentImage();
         Uri imageUri = getCurrentImageUri();
@@ -327,8 +336,6 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
         intent.putExtra(WallpaperPreviewActivity.EXTRA_IMAGE_URI, imageUri);
         startActivity(intent);
     }
-
-    // REMOVED: showSetWallpaperConfirmation() and setCurrentImageAsWallpaper() methods (moved logic to WallpaperPreviewActivity)
 
     private void showImageDetails() {
         Uri imageUri = getCurrentImageUri();
