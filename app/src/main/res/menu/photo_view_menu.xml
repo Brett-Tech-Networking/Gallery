@@ -10,7 +10,7 @@
 
     <item
         android:id="@+id/action_wallpaper"
-        android:icon="@drawable/ic_wallpaper"
+        android:icon="@drawable/wallpaper"
         android:title="@string/action_wallpaper"
         app:showAsAction="ifRoom" />
 
