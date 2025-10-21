@@ -57,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
         checkStoragePermission();
 
         BottomNavigationView navView = binding.navView;
-        applyBottomNavColor(navView); // New method call
+        applyBottomNavColor(navView);
 
         AppBarConfiguration appBarConfiguration = new AppBarConfiguration.Builder(
                 R.id.navigation_pictures, R.id.navigation_albums, R.id.navigation_menu)
@@ -73,26 +73,17 @@ public class MainActivity extends AppCompatActivity {
 
     private void applyBottomNavColor(BottomNavigationView navView) {
         SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
-        String color = prefs.getString(SettingsActivity.KEY_BOTTOM_NAV_COLOR, "Default");
-
-        int colorRes;
-        switch (color) {
-            case "Red":
-                colorRes = R.color.bottom_nav_red;
-                break;
-            case "Green":
-                colorRes = R.color.bottom_nav_green;
-                break;
-            case "Blue":
-                colorRes = R.color.bottom_nav_blue;
-                break;
-            default:
-                return; // Do nothing for default
+        try {
+            int color = prefs.getInt(SettingsActivity.KEY_BOTTOM_NAV_COLOR, 0);
+            if (color != 0) {
+                navView.setItemIconTintList(ColorStateList.valueOf(color));
+                navView.setItemTextColor(ColorStateList.valueOf(color));
+            }
+        } catch (ClassCastException e) {
+            // This will happen if the old preference was a string.
+            // We can clear the old preference and let the user select a new color.
+            prefs.edit().remove(SettingsActivity.KEY_BOTTOM_NAV_COLOR).apply();
         }
-
-        int colorInt = ContextCompat.getColor(this, colorRes);
-        navView.setItemIconTintList(ColorStateList.valueOf(colorInt));
-        navView.setItemTextColor(ColorStateList.valueOf(colorInt));
     }
 
     private void checkStoragePermission() {

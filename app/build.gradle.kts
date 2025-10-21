@@ -69,4 +69,6 @@ dependencies {
 
     // Add GSON library for Favorites feature
     implementation("com.google.code.gson:gson:2.8.9")
+
+    implementation("com.github.Dhaval2404:ColorPicker:2.3")
 }

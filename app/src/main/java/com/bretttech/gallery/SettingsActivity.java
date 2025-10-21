@@ -2,18 +2,27 @@ package com.bretttech.gallery;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
 import android.widget.RadioGroup;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+
+import com.github.dhaval2404.colorpicker.ColorPickerDialog;
+import com.github.dhaval2404.colorpicker.listener.ColorListener;
+import com.github.dhaval2404.colorpicker.model.ColorShape;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -21,7 +30,7 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String KEY_THEME = "app_theme";
     public static final String KEY_ICON = "app_icon_alias";
     public static final String KEY_ANIMATION_TYPE = "animation_type";
-    public static final String KEY_BOTTOM_NAV_COLOR = "bottom_nav_color"; // New key
+    public static final String KEY_BOTTOM_NAV_COLOR = "bottom_nav_color";
 
     public static final String ANIMATION_OFF = "OFF";
     public static final String ANIMATION_SLIDE = "SLIDE";
@@ -46,39 +55,51 @@ public class SettingsActivity extends AppCompatActivity {
         setupThemeSelector();
         setupIconSelector();
         setupAnimationSelector();
-        setupBottomNavColorSelector(); // New method call
+        setupBottomNavColorPicker();
     }
 
-    // New method to handle the BottomNavigationView color selection
-    private void setupBottomNavColorSelector() {
-        RadioGroup bottomNavColorGroup = findViewById(R.id.bottom_nav_color_radio_group);
-        String currentBottomNavColor = prefs.getString(KEY_BOTTOM_NAV_COLOR, "Default");
-
-        if (currentBottomNavColor.equals("Red")) {
-            bottomNavColorGroup.check(R.id.radio_bottom_nav_red);
-        } else if (currentBottomNavColor.equals("Green")) {
-            bottomNavColorGroup.check(R.id.radio_bottom_nav_green);
-        } else if (currentBottomNavColor.equals("Blue")) {
-            bottomNavColorGroup.check(R.id.radio_bottom_nav_blue);
-        } else {
-            bottomNavColorGroup.check(R.id.radio_bottom_nav_default);
-        }
-
-        bottomNavColorGroup.setOnCheckedChangeListener((group, checkedId) -> {
-            String newBottomNavColor;
-            if (checkedId == R.id.radio_bottom_nav_red) {
-                newBottomNavColor = "Red";
-            } else if (checkedId == R.id.radio_bottom_nav_green) {
-                newBottomNavColor = "Green";
-            } else if (checkedId == R.id.radio_bottom_nav_blue) {
-                newBottomNavColor = "Blue";
-            } else {
-                newBottomNavColor = "Default";
+    private void setupBottomNavColorPicker() {
+        Button pickColorButton = findViewById(R.id.pick_color_button);
+        pickColorButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new ColorPickerDialog.Builder(SettingsActivity.this)
+                        .setTitle("Pick a color")
+                        .setColorShape(ColorShape.SQAURE)
+                        .setDefaultColor(prefs.getInt(KEY_BOTTOM_NAV_COLOR, R.color.purple_500))
+                        .setColorListener(new ColorListener() {
+                            @Override
+                            public void onColorSelected(int color, String colorHex) {
+                                prefs.edit().putInt(KEY_BOTTOM_NAV_COLOR, color).apply();
+                                showRestartDialog();
+                            }
+                        })
+                        .show();
             }
-
-            prefs.edit().putString(KEY_BOTTOM_NAV_COLOR, newBottomNavColor).apply();
-            Toast.makeText(this, "Bottom navigation color changed. Please restart the app.", Toast.LENGTH_SHORT).show();
         });
+    }
+
+    private void showRestartDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Restart Required")
+                .setMessage("A restart is required for the changes to take effect. Restart now?")
+                .setPositiveButton("Restart", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        restartApp();
+                    }
+                })
+                .setNegativeButton("Later", null)
+                .show();
+    }
+
+    private void restartApp() {
+        Intent i = getBaseContext().getPackageManager()
+                .getLaunchIntentForPackage(getBaseContext().getPackageName());
+        if (i != null) {
+            i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(i);
+        }
     }
 
     public static String getAnimationType(Context context) {

@@ -143,35 +143,11 @@
         android:textSize="18sp"
         android:textStyle="bold" />
 
-    <RadioGroup
-        android:id="@+id/bottom_nav_color_radio_group"
-        android:layout_width="match_parent"
+    <Button
+        android:id="@+id/pick_color_button"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp">
-
-        <RadioButton
-            android:id="@+id/radio_bottom_nav_default"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/bottom_nav_color_default" />
-
-        <RadioButton
-            android:id="@+id/radio_bottom_nav_red"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/bottom_nav_color_red" />
-
-        <RadioButton
-            android:id="@+id/radio_bottom_nav_green"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/bottom_nav_color_green" />
-
-        <RadioButton
-            android:id="@+id/radio_bottom_nav_blue"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/bottom_nav_color_blue" />
-    </RadioGroup>
+        android:layout_marginTop="8dp"
+        android:text="@string/pick_color" />
 
 </LinearLayout>
