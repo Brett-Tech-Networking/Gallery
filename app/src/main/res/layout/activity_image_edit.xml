@@ -135,6 +135,10 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:visibility="gone" />
+                <include
+                    android:id="@+id/brush_tools_panel"
+                    layout="@layout/layout_brush_tools"
+                    android:visibility="gone" />
             </FrameLayout>
         </FrameLayout>
 

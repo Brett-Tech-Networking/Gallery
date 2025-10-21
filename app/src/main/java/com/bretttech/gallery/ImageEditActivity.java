@@ -1,11 +1,14 @@
 package com.bretttech.gallery;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.RecoverableSecurityException;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -42,6 +45,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bretttech.gallery.filters.FilterListener;
 import com.bretttech.gallery.filters.FilterViewAdapter;
+import com.bretttech.gallery.text.ColorPickerAdapter;
 import com.bretttech.gallery.text.TextEditorDialogFragment;
 import com.yalantis.ucrop.UCrop;
 
@@ -84,6 +88,11 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     private RecyclerView adjustmentsRecyclerView;
     private SeekBar adjustmentSeekBar;
     private TextView sliderValueText;
+
+    private View brushToolsPanel;
+    private SeekBar brushSizeSeekbar;
+    private RecyclerView colorPickerRecyclerView;
+
 
     private String currentAdjustmentType = "Brightness";
     private float brightnessValue = 0f;
@@ -147,6 +156,11 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         adjustmentSeekBar = adjustToolsPanel.findViewById(R.id.adjustment_seekbar);
         sliderValueText = adjustToolsPanel.findViewById(R.id.slider_value_text);
 
+        brushToolsPanel = findViewById(R.id.brush_tools_panel);
+        brushSizeSeekbar = brushToolsPanel.findViewById(R.id.brush_size_seekbar);
+        colorPickerRecyclerView = brushToolsPanel.findViewById(R.id.color_picker_recyclerview);
+
+
         filterRecyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
     }
 
@@ -190,6 +204,12 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
 
         adjustToolsPanel.findViewById(R.id.btnSaveAdjust).setOnClickListener(v -> showSaveDialog());
         adjustToolsPanel.findViewById(R.id.btnCancelAdjust).setOnClickListener(v -> hideAllToolPanels());
+
+        brushToolsPanel.findViewById(R.id.btnSaveBrush).setOnClickListener(v -> hideAllToolPanels());
+        brushToolsPanel.findViewById(R.id.btnCancelBrush).setOnClickListener(v -> {
+            mPhotoEditor.setBrushDrawingMode(false);
+            hideAllToolPanels();
+        });
     }
 
     @Override
@@ -219,7 +239,8 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
             });
         } else if (id == R.id.tool_decorate) {
             mPhotoEditor.setBrushDrawingMode(true);
-            mPhotoEditor.setBrushColor(Color.RED);
+            setupBrushPanel();
+            showToolPanel(brushToolsPanel);
         } else if (id == R.id.imgUndo) {
             mPhotoEditor.undo();
         } else if (id == R.id.imgRedo) {
@@ -242,6 +263,7 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         toolPropertiesContainer.setVisibility(View.VISIBLE);
         adjustToolsPanel.setVisibility(View.GONE);
         filterRecyclerView.setVisibility(View.GONE);
+        brushToolsPanel.setVisibility(View.GONE);
         toolToShow.setVisibility(View.VISIBLE);
     }
 
@@ -279,6 +301,24 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
             public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         updateSeekBarForCurrentTool();
+    }
+
+    private void setupBrushPanel() {
+        brushSizeSeekbar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                mPhotoEditor.setBrushSize(progress);
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+
+        colorPickerRecyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        ColorPickerAdapter colorPickerAdapter = new ColorPickerAdapter(this);
+        colorPickerAdapter.setOnColorPickerClickListener(colorCode -> mPhotoEditor.setBrushColor(colorCode));
+        colorPickerRecyclerView.setAdapter(colorPickerAdapter);
     }
 
     private void updateSeekBarForCurrentTool() {
@@ -357,7 +397,7 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         Toast.makeText(this, "Saving...", Toast.LENGTH_SHORT).show();
 
         SaveSettings saveSettings = new SaveSettings.Builder()
-                .setClearViewsEnabled(false) // This is the critical change
+                .setClearViewsEnabled(false)
                 .setTransparencyEnabled(false)
                 .build();
 
@@ -401,6 +441,7 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
             resolver.update(uri, values, null, null);
 
             runOnUiThread(() -> {
+                setResult(Activity.RESULT_OK);
                 Toast.makeText(this, "Saved successfully!", Toast.LENGTH_SHORT).show();
                 finish();
             });
