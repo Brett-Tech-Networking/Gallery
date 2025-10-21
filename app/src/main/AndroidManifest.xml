@@ -81,7 +81,8 @@
         <activity
             android:name=".PhotoViewActivity"
             android:exported="false"
-            android:theme="@style/Theme.Gallery" />
+            android:theme="@style/Theme.Gallery"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
 
         <activity
             android:name=".VideoPlayerActivity"
