@@ -14,17 +14,15 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
-import androidx.appcompat.widget.SwitchCompat;
 
 public class SettingsActivity extends AppCompatActivity {
 
     public static final String PREFS_NAME = "app_settings_prefs";
     public static final String KEY_THEME = "app_theme";
     public static final String KEY_ICON = "app_icon_alias";
-    // UPDATED CONSTANT to store a String (key for the animation type)
     public static final String KEY_ANIMATION_TYPE = "animation_type";
+    public static final String KEY_BOTTOM_NAV_COLOR = "bottom_nav_color"; // New key
 
-    // NEW CONSTANTS for animation types
     public static final String ANIMATION_OFF = "OFF";
     public static final String ANIMATION_SLIDE = "SLIDE";
     public static final String ANIMATION_FLY = "FLY";
@@ -47,13 +45,44 @@ public class SettingsActivity extends AppCompatActivity {
 
         setupThemeSelector();
         setupIconSelector();
-        setupAnimationSelector(); // Renamed call
+        setupAnimationSelector();
+        setupBottomNavColorSelector(); // New method call
     }
 
-    // UPDATED HELPER METHOD: Now returns the animation type string.
+    // New method to handle the BottomNavigationView color selection
+    private void setupBottomNavColorSelector() {
+        RadioGroup bottomNavColorGroup = findViewById(R.id.bottom_nav_color_radio_group);
+        String currentBottomNavColor = prefs.getString(KEY_BOTTOM_NAV_COLOR, "Default");
+
+        if (currentBottomNavColor.equals("Red")) {
+            bottomNavColorGroup.check(R.id.radio_bottom_nav_red);
+        } else if (currentBottomNavColor.equals("Green")) {
+            bottomNavColorGroup.check(R.id.radio_bottom_nav_green);
+        } else if (currentBottomNavColor.equals("Blue")) {
+            bottomNavColorGroup.check(R.id.radio_bottom_nav_blue);
+        } else {
+            bottomNavColorGroup.check(R.id.radio_bottom_nav_default);
+        }
+
+        bottomNavColorGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            String newBottomNavColor;
+            if (checkedId == R.id.radio_bottom_nav_red) {
+                newBottomNavColor = "Red";
+            } else if (checkedId == R.id.radio_bottom_nav_green) {
+                newBottomNavColor = "Green";
+            } else if (checkedId == R.id.radio_bottom_nav_blue) {
+                newBottomNavColor = "Blue";
+            } else {
+                newBottomNavColor = "Default";
+            }
+
+            prefs.edit().putString(KEY_BOTTOM_NAV_COLOR, newBottomNavColor).apply();
+            Toast.makeText(this, "Bottom navigation color changed. Please restart the app.", Toast.LENGTH_SHORT).show();
+        });
+    }
+
     public static String getAnimationType(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        // Default is OFF
         return prefs.getString(KEY_ANIMATION_TYPE, ANIMATION_OFF);
     }
 
@@ -63,7 +92,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         if (currentTheme == AppCompatDelegate.MODE_NIGHT_NO) {
             themeGroup.check(R.id.radio_light);
-        } else if (currentTheme == R.id.radio_dark) {
+        } else if (currentTheme == AppCompatDelegate.MODE_NIGHT_YES) {
             themeGroup.check(R.id.radio_dark);
         } else {
             themeGroup.check(R.id.radio_system);
@@ -82,13 +111,10 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
-    // NEW/UPDATED METHOD
     private void setupAnimationSelector() {
         RadioGroup animationGroup = findViewById(R.id.animation_radio_group);
-        // Default is OFF
         String currentAnimation = prefs.getString(KEY_ANIMATION_TYPE, ANIMATION_OFF);
 
-        // Set initial state
         if (currentAnimation.equals(ANIMATION_SLIDE)) {
             animationGroup.check(R.id.radio_animation_slide);
         } else if (currentAnimation.equals(ANIMATION_FLY)) {
@@ -137,21 +163,18 @@ public class SettingsActivity extends AppCompatActivity {
         PackageManager pm = getPackageManager();
         String packageName = getPackageName();
 
-        // Disable the current alias
         pm.setComponentEnabledSetting(
                 new ComponentName(packageName, packageName + ".MainActivityLauncher" + currentAliasSuffix),
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                 PackageManager.DONT_KILL_APP
         );
 
-        // Enable the new alias
         pm.setComponentEnabledSetting(
                 new ComponentName(packageName, packageName + ".MainActivityLauncher" + newAliasSuffix),
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                 PackageManager.DONT_KILL_APP
         );
 
-        // Save the new alias preference
         prefs.edit().putString(KEY_ICON, newAliasSuffix).apply();
 
         Toast.makeText(this, R.string.icon_change_toast, Toast.LENGTH_SHORT).show();

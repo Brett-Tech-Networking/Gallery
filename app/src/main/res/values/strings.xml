@@ -70,4 +70,10 @@
     <string name="wallpaper_scale_fill">Fill / Crop</string>
     <string name="wallpaper_scale_fit">Fit</string>
     <string name="wallpaper_scale_stretch">Stretch</string>
+
+    <string name="bottom_nav_color">Bottom Navigation Color</string>
+    <string name="bottom_nav_color_default">Default</string>
+    <string name="bottom_nav_color_red">Red</string>
+    <string name="bottom_nav_color_green">Green</string>
+    <string name="bottom_nav_color_blue">Blue</string>
 </resources>
