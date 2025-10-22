@@ -111,7 +111,7 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
         View root = inflater.inflate(R.layout.fragment_albums, container, false);
 
         RecyclerView recyclerView = root.findViewById(R.id.recycler_view_albums);
-        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3));
 
         albumsAdapter = new AlbumsAdapter(new ArrayList<>(), new AlbumsAdapter.OnAlbumClickListener() {
             @Override

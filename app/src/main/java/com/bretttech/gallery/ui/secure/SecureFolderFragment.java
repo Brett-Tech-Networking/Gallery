@@ -195,7 +195,7 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
                 toggleSelection(album);
             }
         });
-        binding.recyclerViewSecureAlbums.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        binding.recyclerViewSecureAlbums.setLayoutManager(new GridLayoutManager(getContext(), 3));
         binding.recyclerViewSecureAlbums.setAdapter(albumsAdapter);
     }
 
