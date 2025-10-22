@@ -16,13 +16,19 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.RadioGroup;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
+
 import java.io.IOException;
 
 public class WallpaperPreviewActivity extends AppCompatActivity {
@@ -39,12 +45,24 @@ public class WallpaperPreviewActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_wallpaper_preview);
 
-        // Setup the toolbar
+        // This enables the edge-to-edge display
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        // This listener gets the height of the status bar and applies it as padding to the toolbar
+        ViewCompat.setOnApplyWindowInsetsListener(toolbar, (v, windowInsets) -> {
+            int insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
+            // Set the toolbar's height and top padding
+            v.getLayoutParams().height = insets + getResources().getDimensionPixelSize(R.dimen.toolbar_height);
+            v.setPadding(0, insets, 0, 0);
+            return WindowInsetsCompat.CONSUMED;
+        });
+
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setDisplayShowTitleEnabled(false); // No title for a cleaner look
+            getSupportActionBar().setDisplayShowTitleEnabled(false);
         }
 
         imageUri = getIntent().getParcelableExtra(EXTRA_IMAGE_URI);

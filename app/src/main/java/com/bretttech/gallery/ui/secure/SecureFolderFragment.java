@@ -6,6 +6,8 @@ import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -36,6 +38,7 @@ import com.bretttech.gallery.ui.albums.AlbumsViewModel;
 import com.bretttech.gallery.ui.albums.ChangeCoverActivity;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -54,6 +57,7 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
                 if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
                     authenticate();
                 } else {
+                    Toast.makeText(getContext(), "PIN setup is required to use the secure folder.", Toast.LENGTH_LONG).show();
                     navController.popBackStack();
                 }
             });
@@ -64,6 +68,7 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
                     GalleryApplication.isSecureFolderUnlocked = true;
                     loadContent();
                 } else {
+                    Toast.makeText(getContext(), "Authentication required.", Toast.LENGTH_SHORT).show();
                     navController.popBackStack();
                 }
             });
@@ -86,16 +91,12 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
 
         secureFolderViewModel = new ViewModelProvider(this).get(SecureFolderViewModel.class);
         secureFolderViewModel.getAlbums().observe(getViewLifecycleOwner(), albums -> {
-            albumsAdapter.setAlbums(albums);
+            if (GalleryApplication.isSecureFolderUnlocked) {
+                albumsAdapter.setAlbums(albums);
+            }
         });
 
         setHasOptionsMenu(true);
-
-        if (GalleryApplication.isSecureFolderUnlocked) {
-            loadContent();
-        } else {
-            authenticate();
-        }
 
         return binding.getRoot();
     }
@@ -117,6 +118,10 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
     }
 
     private void authenticate() {
+        if (!isAdded() || getActivity() == null) {
+            return;
+        }
+
         SharedPreferences prefs = requireActivity().getSharedPreferences("secure_folder_prefs", Context.MODE_PRIVATE);
 
         if (!prefs.contains("pin_hash")) {
@@ -136,16 +141,22 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
 
                 @Override
                 public void onAuthError(String errString) {
+                    // Fallback to PIN entry on recoverable errors or user cancellation
                     pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
                 }
 
                 @Override
                 public void onAuthFailed() {
+                    // On final failure, exit the secure folder
                     Toast.makeText(getContext(), "Authentication failed", Toast.LENGTH_SHORT).show();
+                    if (isAdded()) {
+                        navController.popBackStack();
+                    }
                 }
 
                 @Override
                 public void onNoSecurityEnrolled() {
+                    // If no biometrics, go straight to PIN
                     pinEntryLauncher.launch(new Intent(getContext(), PinEntryActivity.class));
                 }
             }).authenticate();
@@ -155,7 +166,17 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
     }
 
     private void loadContent() {
+        if (binding != null) {
+            binding.authCoverView.setVisibility(View.GONE);
+        }
         secureFolderViewModel.loadAlbumsFromSecureFolder();
+    }
+
+    private void hideContent() {
+        if (binding != null) {
+            albumsAdapter.setAlbums(Collections.emptyList());
+            binding.authCoverView.setVisibility(View.VISIBLE);
+        }
     }
 
     private void setupRecyclerView() {
@@ -319,17 +340,18 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
         albumsAdapter.clearSelection();
     }
 
-    // -----------------------------
-    // 🔒 ADD THIS SECTION FOR AUTO-LOCK
-    // -----------------------------
     @Override
     public void onResume() {
         super.onResume();
-
-        // If user left app and came back, force re-auth if unlocked flag is false
-        if (!GalleryApplication.isAppInForeground || !GalleryApplication.isSecureFolderUnlocked) {
-            GalleryApplication.isSecureFolderUnlocked = false;
-            authenticate();
-        }
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (isAdded()) {
+                if (GalleryApplication.isSecureFolderUnlocked) {
+                    loadContent();
+                } else {
+                    hideContent();
+                    authenticate();
+                }
+            }
+        });
     }
 }
