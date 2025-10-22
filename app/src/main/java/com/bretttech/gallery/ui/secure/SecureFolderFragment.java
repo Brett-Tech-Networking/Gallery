@@ -12,6 +12,8 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
@@ -27,6 +29,8 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.transition.AutoTransition;
+import androidx.transition.TransitionManager;
 
 import com.bretttech.gallery.GalleryApplication;
 import com.bretttech.gallery.R;
@@ -51,6 +55,9 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
     private NavController navController;
     private androidx.appcompat.view.ActionMode actionMode;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private ScaleGestureDetector scaleGestureDetector;
+    private GridLayoutManager gridLayoutManager;
+    private static final String PREF_SECURE_ALBUM_COLUMNS = "secure_album_columns";
 
     private final ActivityResultLauncher<Intent> pinSetupLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -88,6 +95,7 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
         navController = NavHostFragment.findNavController(this);
 
         setupRecyclerView();
+        setupPinchToZoom();
 
         secureFolderViewModel = new ViewModelProvider(this).get(SecureFolderViewModel.class);
         secureFolderViewModel.getAlbums().observe(getViewLifecycleOwner(), albums -> {
@@ -195,8 +203,48 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
                 toggleSelection(album);
             }
         });
-        binding.recyclerViewSecureAlbums.setLayoutManager(new GridLayoutManager(getContext(), 3));
+        SharedPreferences prefs = requireActivity().getPreferences(Context.MODE_PRIVATE);
+        int savedSpanCount = prefs.getInt(PREF_SECURE_ALBUM_COLUMNS, 3);
+        gridLayoutManager = new GridLayoutManager(getContext(), savedSpanCount);
+        binding.recyclerViewSecureAlbums.setLayoutManager(gridLayoutManager);
+        albumsAdapter.setSpanCount(savedSpanCount);
         binding.recyclerViewSecureAlbums.setAdapter(albumsAdapter);
+    }
+
+    private void setupPinchToZoom() {
+        scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override
+            public boolean onScale(ScaleGestureDetector detector) {
+                SharedPreferences prefs = requireActivity().getPreferences(Context.MODE_PRIVATE);
+                SharedPreferences.Editor editor = prefs.edit();
+
+                if (detector.getScaleFactor() > 1.0f) {
+                    // Pinching out
+                    if (gridLayoutManager.getSpanCount() > 2) {
+                        TransitionManager.beginDelayedTransition(binding.recyclerViewSecureAlbums, new AutoTransition().setDuration(250));
+                        gridLayoutManager.setSpanCount(2);
+                        editor.putInt(PREF_SECURE_ALBUM_COLUMNS, 2);
+                        editor.apply();
+                        albumsAdapter.setSpanCount(2);
+                    }
+                } else {
+                    // Pinching in
+                    if (gridLayoutManager.getSpanCount() < 3) {
+                        TransitionManager.beginDelayedTransition(binding.recyclerViewSecureAlbums, new AutoTransition().setDuration(250));
+                        gridLayoutManager.setSpanCount(3);
+                        editor.putInt(PREF_SECURE_ALBUM_COLUMNS, 3);
+                        editor.apply();
+                        albumsAdapter.setSpanCount(3);
+                    }
+                }
+                return true;
+            }
+        });
+
+        binding.recyclerViewSecureAlbums.setOnTouchListener((v, event) -> {
+            scaleGestureDetector.onTouchEvent(event);
+            return false;
+        });
     }
 
     private void toggleSelection(Album album) {

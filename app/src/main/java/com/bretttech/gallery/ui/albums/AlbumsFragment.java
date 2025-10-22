@@ -9,6 +9,7 @@ import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
@@ -21,6 +22,8 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
@@ -41,6 +44,8 @@ import androidx.navigation.NavOptions;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.transition.AutoTransition;
+import androidx.transition.TransitionManager;
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.SharedViewModel;
 import com.bretttech.gallery.SettingsActivity;
@@ -59,6 +64,10 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private SharedViewModel sharedViewModel;
     private List<File> mFoldersToDelete;
+    private ScaleGestureDetector scaleGestureDetector;
+    private GridLayoutManager gridLayoutManager;
+    private RecyclerView recyclerView;
+    private static final String PREF_ALBUM_COLUMNS = "album_columns";
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -110,8 +119,11 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_albums, container, false);
 
-        RecyclerView recyclerView = root.findViewById(R.id.recycler_view_albums);
-        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3));
+        recyclerView = root.findViewById(R.id.recycler_view_albums);
+        SharedPreferences prefs = requireActivity().getPreferences(Context.MODE_PRIVATE);
+        int savedSpanCount = prefs.getInt(PREF_ALBUM_COLUMNS, 3);
+        gridLayoutManager = new GridLayoutManager(getContext(), savedSpanCount);
+        recyclerView.setLayoutManager(gridLayoutManager);
 
         albumsAdapter = new AlbumsAdapter(new ArrayList<>(), new AlbumsAdapter.OnAlbumClickListener() {
             @Override
@@ -128,6 +140,7 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
                 toggleSelection(album);
             }
         });
+        albumsAdapter.setSpanCount(savedSpanCount);
         recyclerView.setAdapter(albumsAdapter);
 
         albumsViewModel = new ViewModelProvider(this).get(AlbumsViewModel.class);
@@ -141,7 +154,45 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
             }
         });
 
+        setupPinchToZoom();
+
         return root;
+    }
+
+    private void setupPinchToZoom() {
+        scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override
+            public boolean onScale(ScaleGestureDetector detector) {
+                SharedPreferences prefs = requireActivity().getPreferences(Context.MODE_PRIVATE);
+                SharedPreferences.Editor editor = prefs.edit();
+
+                if (detector.getScaleFactor() > 1.0f) {
+                    // Pinching out
+                    if (gridLayoutManager.getSpanCount() > 2) {
+                        TransitionManager.beginDelayedTransition(recyclerView, new AutoTransition().setDuration(250));
+                        gridLayoutManager.setSpanCount(2);
+                        editor.putInt(PREF_ALBUM_COLUMNS, 2);
+                        editor.apply();
+                        albumsAdapter.setSpanCount(2);
+                    }
+                } else {
+                    // Pinching in
+                    if (gridLayoutManager.getSpanCount() < 3) {
+                        TransitionManager.beginDelayedTransition(recyclerView, new AutoTransition().setDuration(250));
+                        gridLayoutManager.setSpanCount(3);
+                        editor.putInt(PREF_ALBUM_COLUMNS, 3);
+                        editor.apply();
+                        albumsAdapter.setSpanCount(3);
+                    }
+                }
+                return true;
+            }
+        });
+
+        recyclerView.setOnTouchListener((v, event) -> {
+            scaleGestureDetector.onTouchEvent(event);
+            return false;
+        });
     }
 
     @Override

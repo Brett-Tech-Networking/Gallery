@@ -1,6 +1,7 @@
 package com.bretttech.gallery.ui.albums;
 
 import android.net.Uri;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +24,7 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
     private final List<Album> albums;
     private final OnAlbumClickListener listener;
     private final List<Album> selectedAlbums = new ArrayList<>();
+    private int spanCount;
 
 
     public interface OnAlbumClickListener {
@@ -33,6 +35,11 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
     public AlbumsAdapter(List<Album> albums, OnAlbumClickListener listener) {
         this.albums = albums != null ? albums : new ArrayList<>();
         this.listener = listener;
+    }
+
+    public void setSpanCount(int spanCount) {
+        this.spanCount = spanCount;
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -46,7 +53,7 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
     @Override
     public void onBindViewHolder(@NonNull AlbumViewHolder holder, int position) {
         Album album = albums.get(position);
-        holder.bind(album, listener, selectedAlbums.contains(album));
+        holder.bind(album, listener, selectedAlbums.contains(album), spanCount);
     }
 
     @Override
@@ -98,9 +105,15 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
             selectionOverlay = itemView.findViewById(R.id.selection_overlay);
         }
 
-        public void bind(final Album album, final OnAlbumClickListener listener, boolean isSelected) {
+        public void bind(final Album album, final OnAlbumClickListener listener, boolean isSelected, int spanCount) {
             albumName.setText(album.getName());
             albumImageCount.setText(album.getImageCount() + " Items");
+
+            if (spanCount == 3) {
+                albumName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            } else {
+                albumName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            }
 
             Uri coverUri = album.getCoverImageUri();
             if (coverUri != null) {
