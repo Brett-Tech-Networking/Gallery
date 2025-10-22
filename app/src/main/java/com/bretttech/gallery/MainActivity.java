@@ -31,7 +31,6 @@ public class MainActivity extends AppCompatActivity {
 
     private ActivityMainBinding binding;
     private NavController navController;
-    private boolean isNavigatingWithinApp = false;
 
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -69,37 +68,14 @@ public class MainActivity extends AppCompatActivity {
                 .findFragmentById(R.id.nav_host_fragment_activity_main);
         navController = navHostFragment.getNavController();
 
+        navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+            if (destination.getId() != R.id.secureFolderFragment && destination.getId() != R.id.secureAlbumDetailFragment) {
+                GalleryApplication.isSecureFolderUnlocked = false;
+            }
+        });
+
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(binding.navView, navController);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        // App leaving focus — trigger lock if leaving app
-        if (!isNavigatingWithinApp && !GalleryApplication.isAppInForeground) {
-            GalleryApplication.isSecureFolderUnlocked = false;
-        }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        // If user left and came back → force lock check
-        isNavigatingWithinApp = false;
-
-        if (!GalleryApplication.isAppInForeground ||
-                !GalleryApplication.isSecureFolderUnlocked) {
-            // Immediately force lock secure folder when returning
-            GalleryApplication.isSecureFolderUnlocked = false;
-
-            // Navigate to your secure folder lock screen here
-            // Example:
-            // navController.navigate(R.id.navigation_secure_folder_lock);
-
-            // Or just show your unlock dialog again
-        }
     }
 
     private void applyBottomNavColor(BottomNavigationView navView) {
