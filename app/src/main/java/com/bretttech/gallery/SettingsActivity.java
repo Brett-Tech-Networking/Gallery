@@ -10,6 +10,8 @@ import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.RadioGroup;
 import android.widget.Toast;
 
@@ -19,6 +21,7 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.appcompat.widget.SwitchCompat;
 
 import com.github.dhaval2404.colorpicker.ColorPickerDialog;
 import com.github.dhaval2404.colorpicker.listener.ColorListener;
@@ -31,6 +34,9 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String KEY_ICON = "app_icon_alias";
     public static final String KEY_ANIMATION_TYPE = "animation_type";
     public static final String KEY_BOTTOM_NAV_COLOR = "bottom_nav_color";
+    public static final String KEY_ALBUM_BORDERS = "album_borders_enabled";
+    public static final String KEY_ALBUM_BORDER_COLOR = "album_border_color";
+    public static final String KEY_ALBUM_BORDER_WIDTH_DP = "album_border_width_dp";
 
     public static final String ANIMATION_OFF = "OFF";
     public static final String ANIMATION_SLIDE = "SLIDE";
@@ -56,6 +62,9 @@ public class SettingsActivity extends AppCompatActivity {
         setupIconSelector();
         setupAnimationSelector();
         setupBottomNavColorPicker();
+        setupAlbumBordersToggle();
+        setupAlbumBorderColorPicker();
+        setupAlbumBorderWidth();
     }
 
     private void setupBottomNavColorPicker() {
@@ -105,6 +114,21 @@ public class SettingsActivity extends AppCompatActivity {
     public static String getAnimationType(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getString(KEY_ANIMATION_TYPE, ANIMATION_OFF);
+    }
+
+    public static boolean isAlbumBordersEnabled(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getBoolean(KEY_ALBUM_BORDERS, false);
+    }
+
+    public static int getAlbumBorderColor(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getInt(KEY_ALBUM_BORDER_COLOR, context.getResources().getColor(R.color.purple_500));
+    }
+
+    public static int getAlbumBorderWidthDp(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getInt(KEY_ALBUM_BORDER_WIDTH_DP, 1);
     }
 
     private void setupThemeSelector() {
@@ -173,6 +197,51 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.icon_default).setOnClickListener(v -> setAppIcon("Default"));
         findViewById(R.id.icon_variant_1).setOnClickListener(v -> setAppIcon("Variant1"));
         findViewById(R.id.icon_variant_2).setOnClickListener(v -> setAppIcon("Variant2"));
+    }
+
+    private void setupAlbumBordersToggle() {
+        SwitchCompat switchCompat = findViewById(R.id.switch_album_borders);
+        boolean enabled = prefs.getBoolean(KEY_ALBUM_BORDERS, false);
+        switchCompat.setChecked(enabled);
+        switchCompat.setOnCheckedChangeListener((buttonView, isChecked) ->
+                prefs.edit().putBoolean(KEY_ALBUM_BORDERS, isChecked).apply());
+    }
+
+    private void setupAlbumBorderColorPicker() {
+        Button button = findViewById(R.id.pick_border_color_button);
+        button.setOnClickListener(v -> new ColorPickerDialog.Builder(SettingsActivity.this)
+                .setTitle(getString(R.string.pick_border_color))
+                .setColorShape(ColorShape.SQAURE)
+                .setDefaultColor(prefs.getInt(KEY_ALBUM_BORDER_COLOR, getResources().getColor(R.color.purple_500)))
+                .setColorListener(new ColorListener() {
+                    @Override
+                    public void onColorSelected(int color, String colorHex) {
+                        prefs.edit().putInt(KEY_ALBUM_BORDER_COLOR, color).apply();
+                    }
+                })
+                .show());
+    }
+
+    private void setupAlbumBorderWidth() {
+        SeekBar seekBar = findViewById(R.id.seek_album_border_width);
+        TextView valueText = findViewById(R.id.text_album_border_width);
+        int saved = prefs.getInt(KEY_ALBUM_BORDER_WIDTH_DP, 1);
+        seekBar.setProgress(saved);
+        valueText.setText(getString(R.string.width_dp, String.valueOf(saved)));
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                valueText.setText(getString(R.string.width_dp, String.valueOf(progress)));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                prefs.edit().putInt(KEY_ALBUM_BORDER_WIDTH_DP, seekBar.getProgress()).apply();
+            }
+        });
     }
 
     private void setAppIcon(String newAliasSuffix) {

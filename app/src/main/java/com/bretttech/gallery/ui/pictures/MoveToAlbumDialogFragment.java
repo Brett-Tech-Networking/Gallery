@@ -77,15 +77,21 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
         return fragment;
     }
 
+    public static MoveToAlbumDialogFragment newInstanceForMoveOutOfSecure(List<Uri> uris) {
+        MoveToAlbumDialogFragment fragment = newInstance(uris, false);
+        if (fragment.getArguments() != null) {
+            fragment.getArguments().putBoolean(ARG_IS_MOVING_OUT_OF_SECURE, true);
+        }
+        return fragment;
+    }
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             urisToMove = getArguments().getParcelableArrayList(ARG_URIS);
             isSecureMove = getArguments().getBoolean(ARG_IS_SECURE_MOVE, false);
-            if (getParentFragment() instanceof com.bretttech.gallery.ui.secure.SecureAlbumDetailFragment) {
-                isMovingOutOfSecure = true;
-            }
+            isMovingOutOfSecure = getArguments().getBoolean(ARG_IS_MOVING_OUT_OF_SECURE, false);
         }
         if (urisToMove == null) {
             urisToMove = new ArrayList<>();
@@ -210,12 +216,23 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
                 }
 
                 File destinationFile = new File(destinationDir, displayName);
+                destinationFile = ensureUniqueFile(destinationFile);
 
                 if (isMovingOutOfSecure) {
                     File sourceFile = new File(sourceUri.getPath());
-                    if (sourceFile.renameTo(destinationFile)) {
+                    try (InputStream in = new FileInputStream(sourceFile);
+                         OutputStream out = new FileOutputStream(destinationFile)) {
+                        byte[] buf = new byte[8192];
+                        int len;
+                        while ((len = in.read(buf)) > 0) {
+                            out.write(buf, 0, len);
+                        }
+                        // delete original only after successful copy
+                        //noinspection ResultOfMethodCallIgnored
+                        sourceFile.delete();
                         scanFile(requireContext(), destinationFile.getAbsolutePath());
-                    } else {
+                    } catch (Exception e) {
+                        e.printStackTrace();
                         allSuccess = false;
                     }
                 } else {
@@ -242,6 +259,25 @@ public class MoveToAlbumDialogFragment extends BottomSheetDialogFragment {
         }
 
         return allSuccess;
+    }
+
+    private File ensureUniqueFile(File file) {
+        if (!file.exists()) return file;
+        String name = file.getName();
+        String base = name;
+        String ext = "";
+        int dot = name.lastIndexOf('.');
+        if (dot != -1) {
+            base = name.substring(0, dot);
+            ext = name.substring(dot);
+        }
+        int i = 1;
+        File candidate;
+        do {
+            candidate = new File(file.getParentFile(), base + "(" + i + ")" + ext);
+            i++;
+        } while (candidate.exists());
+        return candidate;
     }
 
     private void scanFile(Context context, String path) {

@@ -298,7 +298,8 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
             mode.finish();
             return true;
         } else if (itemId == R.id.action_move_out_of_secure) {
-            moveAlbumsToPublic(selectedAlbums);
+            // Pass a defensive copy so later selection clearing doesn't mutate our list
+            moveAlbumsToPublic(new java.util.ArrayList<>(selectedAlbums));
             mode.finish();
             return true;
         } else if (itemId == R.id.action_change_cover) {
@@ -316,6 +317,7 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
             File publicPicturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
             if (!publicPicturesDir.exists()) publicPicturesDir.mkdirs();
 
+            int movedAlbums = 0;
             for (Album album : albumsToMove) {
                 File sourceDir = new File(album.getFolderPath());
                 File destDir = new File(publicPicturesDir, album.getName());
@@ -323,22 +325,60 @@ public class SecureFolderFragment extends Fragment implements androidx.appcompat
 
                 File[] filesToMove = sourceDir.listFiles();
                 if (filesToMove != null) {
+                    int movedFiles = 0;
                     for (File file : filesToMove) {
-                        File newFile = new File(destDir, file.getName());
-                        file.renameTo(newFile);
-                        AlbumsViewModel.scanFile(getContext(), Uri.fromFile(newFile));
+                        File destFile = ensureUniqueFile(new File(destDir, file.getName()));
+                        try (java.io.InputStream in = new java.io.FileInputStream(file);
+                             java.io.OutputStream out = new java.io.FileOutputStream(destFile)) {
+                            byte[] buf = new byte[8192];
+                            int len;
+                            while ((len = in.read(buf)) > 0) {
+                                out.write(buf, 0, len);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            // continue to next file
+                        }
+                        // delete original only after a successful copy
+                        if (destFile.exists()) {
+                            //noinspection ResultOfMethodCallIgnored
+                            file.delete();
+                            AlbumsViewModel.scanFile(getContext(), Uri.fromFile(destFile));
+                            movedFiles++;
+                        }
                     }
+                    if (movedFiles > 0) movedAlbums++;
                 }
                 deleteDirectory(sourceDir);
             }
 
             if (isAdded()) {
+                final int finalMovedAlbums = movedAlbums;
                 requireActivity().runOnUiThread(() -> {
-                    Toast.makeText(getContext(), "Moved " + albumsToMove.size() + " album(s) out of secure folder", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Moved " + finalMovedAlbums + " album(s) out of secure folder", Toast.LENGTH_SHORT).show();
                     secureFolderViewModel.loadAlbumsFromSecureFolder();
                 });
             }
         });
+    }
+
+    private File ensureUniqueFile(File file) {
+        if (!file.exists()) return file;
+        String name = file.getName();
+        String base = name;
+        String ext = "";
+        int dot = name.lastIndexOf('.');
+        if (dot != -1) {
+            base = name.substring(0, dot);
+            ext = name.substring(dot);
+        }
+        int i = 1;
+        File candidate;
+        do {
+            candidate = new File(file.getParentFile(), base + "(" + i + ")" + ext);
+            i++;
+        } while (candidate.exists());
+        return candidate;
     }
 
     private void showDeleteConfirmation(List<Album> albumsToDelete) {

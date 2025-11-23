@@ -1,5 +1,6 @@
 package com.bretttech.gallery.ui.albums;
 
+import android.content.Context;
 import android.net.Uri;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -12,9 +13,11 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bretttech.gallery.R;
+import com.bretttech.gallery.SettingsActivity;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.signature.ObjectKey;
+import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -141,12 +144,32 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
 
             selectionOverlay.setVisibility(isSelected ? View.VISIBLE : View.GONE);
 
+            // Apply album border preferences
+            boolean showBorders = SettingsActivity.isAlbumBordersEnabled(itemView.getContext());
+            View root = itemView;
+            if (root instanceof MaterialCardView) {
+                MaterialCardView card = (MaterialCardView) root;
+                if (showBorders) {
+                    int widthDp = SettingsActivity.getAlbumBorderWidthDp(itemView.getContext());
+                    int color = SettingsActivity.getAlbumBorderColor(itemView.getContext());
+                    card.setStrokeWidth(dpToPx(itemView.getContext(), widthDp));
+                    card.setStrokeColor(color);
+                } else {
+                    card.setStrokeWidth(0);
+                }
+            }
+
 
             itemView.setOnClickListener(v -> listener.onAlbumClick(album));
             itemView.setOnLongClickListener(v -> {
                 listener.onAlbumLongClick(album);
                 return true;
             });
+        }
+
+        private int dpToPx(Context context, int dp) {
+            float density = context.getResources().getDisplayMetrics().density;
+            return Math.round(dp * density);
         }
     }
 }

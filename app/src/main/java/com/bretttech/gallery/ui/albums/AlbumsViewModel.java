@@ -167,20 +167,6 @@ public class AlbumsViewModel extends AndroidViewModel {
         executorService.execute(() -> {
             Map<String, Album> albumMap = new HashMap<>();
 
-            File publicPicturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
-            if (publicPicturesDir != null && publicPicturesDir.exists() && publicPicturesDir.isDirectory()) {
-                File[] subdirectories = publicPicturesDir.listFiles(File::isDirectory);
-                if (subdirectories != null) {
-                    for (File dir : subdirectories) {
-                        if (dir.getName().startsWith(".")) {
-                            continue;
-                        }
-                        Album album = new Album(dir.getName(), null, 0, dir.getAbsolutePath(), Image.MEDIA_TYPE_IMAGE, dir.lastModified() / 1000);
-                        albumMap.put(dir.getAbsolutePath(), album);
-                    }
-                }
-            }
-
             String securePathPrefix = getApplication().getFilesDir().getAbsolutePath() + File.separator + "secure";
             String[] projection = {
                     MediaStore.Files.FileColumns.DATA,
@@ -234,6 +220,9 @@ public class AlbumsViewModel extends AndroidViewModel {
             }
 
             List<Album> finalAlbums = new ArrayList<>(albumMap.values());
+
+            // Remove empty or invalid albums (no items or no cover)
+            finalAlbums.removeIf(album -> album == null || album.getImageCount() <= 0 || album.getCoverImageUri() == null);
 
             for (Album album : finalAlbums) {
                 Uri customCover = albumCoverRepository.getCustomCover(album.getFolderPath());

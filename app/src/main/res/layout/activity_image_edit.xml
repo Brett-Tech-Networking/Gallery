@@ -57,6 +57,22 @@
             android:src="@drawable/ic_redo"
             app:tint="@android:color/white" />
         <ImageButton
+            android:id="@+id/imgRotate"
+            android:layout_width="?attr/actionBarSize"
+            android:layout_height="match_parent"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="14dp"
+            android:src="@drawable/ic_restore"
+            app:tint="@android:color/white" />
+        <ImageButton
+            android:id="@+id/imgFlip"
+            android:layout_width="?attr/actionBarSize"
+            android:layout_height="match_parent"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="14dp"
+            android:src="@drawable/ic_move"
+            app:tint="@android:color/white" />
+        <ImageButton
             android:id="@+id/imgSave"
             android:layout_width="?attr/actionBarSize"
             android:layout_height="match_parent"

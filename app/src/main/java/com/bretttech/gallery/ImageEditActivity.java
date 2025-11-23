@@ -201,6 +201,8 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         findViewById(R.id.tool_decorate).setOnClickListener(this);
         findViewById(R.id.imgUndo).setOnClickListener(this);
         findViewById(R.id.imgRedo).setOnClickListener(this);
+        findViewById(R.id.imgRotate).setOnClickListener(this);
+        findViewById(R.id.imgFlip).setOnClickListener(this);
 
         adjustToolsPanel.findViewById(R.id.btnSaveAdjust).setOnClickListener(v -> showSaveDialog());
         adjustToolsPanel.findViewById(R.id.btnCancelAdjust).setOnClickListener(v -> hideAllToolPanels());
@@ -230,6 +232,10 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
             }
         } else if (id == R.id.tool_crop_rotate) {
             startCrop(mImageUri);
+        } else if (id == R.id.imgRotate) {
+            rotate90();
+        } else if (id == R.id.imgFlip) {
+            flipHorizontal();
         } else if (id == R.id.tool_text) {
             TextEditorDialogFragment textEditorDialogFragment = TextEditorDialogFragment.show(this);
             textEditorDialogFragment.setOnTextEditorListener((inputText, colorCode) -> {
@@ -490,11 +496,43 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
 
 
     private void startCrop(@NonNull Uri uri) {
-        String destFileName = "CroppedImage.jpg";
+        String destFileName = "CroppedImage_" + System.currentTimeMillis() + ".jpg";
         UCrop.Options options = new UCrop.Options();
         options.setToolbarColor(ContextCompat.getColor(this, R.color.purple_700));
         options.setStatusBarColor(ContextCompat.getColor(this, R.color.purple_700));
-        uCropLauncher.launch(UCrop.of(uri, Uri.fromFile(new File(getCacheDir(), destFileName))).withOptions(options).getIntent(this));
+        options.setHideBottomControls(false);
+        options.setFreeStyleCropEnabled(true); // allow free crop
+        options.setCompressionQuality(95);
+
+        // Provide common aspect ratios for quick crop
+        options.setAspectRatioOptions(0,
+                new com.yalantis.ucrop.model.AspectRatio("Original", 0, 0),
+                new com.yalantis.ucrop.model.AspectRatio("1:1", 1, 1),
+                new com.yalantis.ucrop.model.AspectRatio("4:5", 4, 5),
+                new com.yalantis.ucrop.model.AspectRatio("16:9", 16, 9)
+        );
+
+        UCrop u = UCrop.of(uri, Uri.fromFile(new File(getCacheDir(), destFileName)))
+                .withOptions(options);
+        uCropLauncher.launch(u.getIntent(this));
+    }
+
+    private void rotate90() {
+        if (originalBitmap == null) return;
+        Matrix m = new Matrix();
+        m.postRotate(90);
+        originalBitmap = Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.getWidth(), originalBitmap.getHeight(), m, true);
+        adjustedBitmap = originalBitmap.copy(originalBitmap.getConfig(), true);
+        mPhotoEditorView.getSource().setImageBitmap(originalBitmap);
+    }
+
+    private void flipHorizontal() {
+        if (originalBitmap == null) return;
+        Matrix m = new Matrix();
+        m.preScale(-1, 1);
+        originalBitmap = Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.getWidth(), originalBitmap.getHeight(), m, true);
+        adjustedBitmap = originalBitmap.copy(originalBitmap.getConfig(), true);
+        mPhotoEditorView.getSource().setImageBitmap(originalBitmap);
     }
 
     @Override public void onFilterSelected(PhotoFilter photoFilter) {

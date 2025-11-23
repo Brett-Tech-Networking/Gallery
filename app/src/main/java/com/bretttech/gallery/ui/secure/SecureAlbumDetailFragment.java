@@ -126,7 +126,19 @@ public class SecureAlbumDetailFragment extends Fragment implements ActionMode.Ca
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == R.id.action_move_out) {
-            // Your logic for moving images out of the secure folder
+            List<Image> selected = picturesAdapter.getSelectedImages();
+            if (selected == null || selected.isEmpty()) {
+                Toast.makeText(getContext(), "Select images to move out.", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            openMoveToPublicDialog(selected);
+            return true;
+        } else if (item.getItemId() == R.id.action_delete) {
+            List<Image> selected = picturesAdapter.getSelectedImages();
+            if (selected == null || selected.isEmpty()) return true;
+            List<Uri> uris = selected.stream().map(Image::getUri).collect(Collectors.toList());
+            deleteSecureImages(uris);
+            if (actionMode != null) actionMode.finish();
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -152,12 +164,30 @@ public class SecureAlbumDetailFragment extends Fragment implements ActionMode.Ca
             return true;
         }
 
-        if (item.getItemId() == R.id.action_delete_secure) {
+        if (item.getItemId() == R.id.action_move_out_of_secure) {
+            openMoveToPublicDialog(selectedImages);
+            mode.finish();
+            return true;
+        } else if (item.getItemId() == R.id.action_delete_secure) {
             deleteSecureImages(uris);
             mode.finish();
             return true;
         }
         return false;
+    }
+
+    private void openMoveToPublicDialog(List<Image> selectedImages) {
+        if (selectedImages == null || selectedImages.isEmpty()) return;
+        List<Uri> uris = selectedImages.stream().map(Image::getUri).collect(Collectors.toList());
+        com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment dialog = com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment.newInstanceForMoveOutOfSecure(uris);
+        dialog.show(getParentFragmentManager(), com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment.TAG);
+        getParentFragmentManager().setFragmentResultListener(com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment.REQUEST_KEY, this, (requestKey, result) -> {
+            boolean success = result.getBoolean(com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS, false);
+            if (success) {
+                viewModel.loadImages(albumFolderPath);
+                Toast.makeText(getContext(), "Moved out successfully.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void deleteSecureImages(List<Uri> uris) {

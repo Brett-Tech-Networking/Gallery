@@ -73,4 +73,9 @@
 
     <string name="bottom_nav_color">Bottom Navigation Color</string>
     <string name="pick_color">Pick Color</string>
+    <string name="show_album_borders">Show album borders</string>
+    <string name="album_border_color">Album border color</string>
+    <string name="album_border_width">Album border width</string>
+    <string name="pick_border_color">Pick border color</string>
+    <string name="width_dp">%1$sdp</string>
 </resources>
