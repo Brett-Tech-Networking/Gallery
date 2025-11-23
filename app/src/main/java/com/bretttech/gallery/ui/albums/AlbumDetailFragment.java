@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +24,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -69,6 +71,7 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
 
         albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
         favoritesManager = new FavoritesManager(requireContext());
@@ -83,6 +86,29 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
                 if (albumsViewModel != null) {
                     albumsViewModel.loadAlbums();
                 }
+            }
+        });
+    }
+
+    @Override
+    public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
+        inflater.inflate(R.menu.album_detail_menu, menu);
+        super.onCreateOptionsMenu(menu, inflater);
+
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        SearchView searchView = (SearchView) searchItem.getActionView();
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                viewModel.searchImages(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                viewModel.searchImages(newText);
+                return true;
             }
         });
     }
@@ -203,7 +229,7 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
                 if (selectedImage.getMediaType() == Image.MEDIA_TYPE_VIDEO) {
                     Toast.makeText(getContext(), R.string.wallpaper_error, Toast.LENGTH_SHORT).show();
                 } else {
-                    Intent intent = new Intent(getContext(), WallpaperPreviewActivity.class);
+                    Intent intent = new Intent(getContext (), WallpaperPreviewActivity.class);
                     intent.putExtra(WallpaperPreviewActivity.EXTRA_IMAGE_URI, selectedImage.getUri());
                     startActivity(intent);
                 }

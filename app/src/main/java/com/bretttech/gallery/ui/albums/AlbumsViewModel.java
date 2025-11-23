@@ -14,17 +14,21 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import com.bretttech.gallery.data.AlbumCoverRepository;
 import com.bretttech.gallery.data.AlbumVisibilityManager;
+import com.bretttech.gallery.data.ImageDetailsManager;
 import com.bretttech.gallery.ui.pictures.Image;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class AlbumsViewModel extends AndroidViewModel {
@@ -34,10 +38,12 @@ public class AlbumsViewModel extends AndroidViewModel {
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final AlbumCoverRepository albumCoverRepository;
     private final AlbumVisibilityManager visibilityManager;
+    private final ImageDetailsManager imageDetailsManager;
 
     private List<Album> allAlbums = new ArrayList<>();
+    private Map<String, List<Uri>> albumImageUrisMap = new HashMap<>(); // Track images in each album
     private SortOrder currentSortOrder = SortOrder.NAME_ASC;
-    private String currentSearchQuery = null; // Add this line
+    private String currentSearchQuery = null;
 
     public enum SortOrder {
         DATE_DESC, DATE_ASC, NAME_ASC, NAME_DESC, COUNT_DESC, COUNT_ASC
@@ -47,6 +53,7 @@ public class AlbumsViewModel extends AndroidViewModel {
         super(application);
         albumCoverRepository = new AlbumCoverRepository(application.getApplicationContext());
         visibilityManager = new AlbumVisibilityManager(application.getApplicationContext());
+        imageDetailsManager = new ImageDetailsManager(application);
         loadAlbums();
     }
 
@@ -66,12 +73,12 @@ public class AlbumsViewModel extends AndroidViewModel {
 
     public void sortAlbums(SortOrder sortOrder) {
         currentSortOrder = sortOrder;
-        filterAndSortAlbums(); // Use the new method
+        filterAndSortAlbums();
     }
 
     public void searchAlbums(String query) {
         currentSearchQuery = query;
-        filterAndSortAlbums(); // Use the new method
+        filterAndSortAlbums();
     }
 
     public void setAlbumCover(String albumPath, Uri coverUri, int mediaType) {
@@ -112,15 +119,61 @@ public class AlbumsViewModel extends AndroidViewModel {
         executorService.execute(() -> {
             List<Album> processedList = new ArrayList<>(allAlbums);
 
-            // Apply search filter first
+            // Apply search filter
             if (currentSearchQuery != null && !currentSearchQuery.isEmpty()) {
                 String lowerCaseQuery = currentSearchQuery.toLowerCase();
+                Set<String> albumsWithMatchingTags = new HashSet<>();
+                
+                // Check for tag matches in each album
+                AtomicInteger pendingChecks = new AtomicInteger(albumImageUrisMap.size());
+                CountDownLatch latch = new CountDownLatch(1);
+                
+                for (Map.Entry<String, List<Uri>> entry : albumImageUrisMap.entrySet()) {
+                    String albumPath = entry.getKey();
+                    List<Uri> imageUris = entry.getValue();
+                    
+                    if (imageUris.isEmpty()) {
+                        if (pendingChecks.decrementAndGet() == 0) {
+                            latch.countDown();
+                        }
+                        continue;
+                    }
+                    
+                    AtomicInteger imageChecks = new AtomicInteger(imageUris.size());
+                    
+                    for (Uri imageUri : imageUris) {
+                        imageDetailsManager.getImageDetails(imageUri, details -> {
+                            boolean tagMatch = details.getTags().stream()
+                                    .anyMatch(tag -> tag.toLowerCase().contains(lowerCaseQuery));
+                            if (tagMatch) {
+                                synchronized (albumsWithMatchingTags) {
+                                    albumsWithMatchingTags.add(albumPath);
+                                }
+                            }
+                            
+                            if (imageChecks.decrementAndGet() == 0) {
+                                if (pendingChecks.decrementAndGet() == 0) {
+                                    latch.countDown();
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                try {
+                    latch.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                
+                // Filter by album name OR if album contains images with matching tags
                 processedList = processedList.stream()
-                        .filter(album -> album.getName().toLowerCase().contains(lowerCaseQuery))
+                        .filter(album -> album.getName().toLowerCase().contains(lowerCaseQuery) ||
+                                        albumsWithMatchingTags.contains(album.getFolderPath()))
                         .collect(Collectors.toList());
             }
 
-            // Then apply sorting
+            // Apply sorting
             Comparator<Album> secondaryComparator;
 
             switch (currentSortOrder) {
@@ -166,6 +219,7 @@ public class AlbumsViewModel extends AndroidViewModel {
     public void loadAlbums() {
         executorService.execute(() -> {
             Map<String, Album> albumMap = new HashMap<>();
+            Map<String, List<Uri>> imageMap = new HashMap<>();
 
             String securePathPrefix = getApplication().getFilesDir().getAbsolutePath() + File.separator + "secure";
             String[] projection = {
@@ -203,6 +257,9 @@ public class AlbumsViewModel extends AndroidViewModel {
                                 ? ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
                                 : ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
 
+                        // Track image URIs for each album
+                        imageMap.computeIfAbsent(folderPath, k -> new ArrayList<>()).add(coverUri);
+
                         if (album == null) {
                             String albumName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME));
                             long dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED));
@@ -221,7 +278,7 @@ public class AlbumsViewModel extends AndroidViewModel {
 
             List<Album> finalAlbums = new ArrayList<>(albumMap.values());
 
-            // Remove empty or invalid albums (no items or no cover)
+            // Remove empty or invalid albums
             finalAlbums.removeIf(album -> album == null || album.getImageCount() <= 0 || album.getCoverImageUri() == null);
 
             for (Album album : finalAlbums) {
@@ -233,6 +290,7 @@ public class AlbumsViewModel extends AndroidViewModel {
             }
 
             allAlbums = finalAlbums;
+            albumImageUrisMap = imageMap;
             allAlbumsUnfilteredLiveData.postValue(new ArrayList<>(allAlbums));
             filterAndSortAlbums();
         });

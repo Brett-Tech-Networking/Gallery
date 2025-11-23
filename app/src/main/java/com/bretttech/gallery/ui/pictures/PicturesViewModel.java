@@ -113,20 +113,20 @@ public class PicturesViewModel extends AndroidViewModel {
     private void filterAndSortImages() {
         executorService.execute(() -> {
             List<Image> filteredList = new ArrayList<>(allImages);
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
             if (currentSearchQuery != null && !currentSearchQuery.isEmpty()) {
                 String lowerCaseQuery = currentSearchQuery.toLowerCase();
-                List<Image> tagResults = new ArrayList<>();
+                List<Image> tagMatchingImages = new ArrayList<>();
                 CountDownLatch latch = new CountDownLatch(filteredList.size());
 
+                // Check all images for tag matches
                 for (Image image : filteredList) {
                     imageDetailsManager.getImageDetails(image.getUri(), details -> {
                         boolean tagMatch = details.getTags().stream()
                                 .anyMatch(tag -> tag.toLowerCase().contains(lowerCaseQuery));
                         if (tagMatch) {
-                            synchronized (tagResults) {
-                                tagResults.add(image);
+                            synchronized (tagMatchingImages) {
+                                tagMatchingImages.add(image);
                             }
                         }
                         latch.countDown();
@@ -139,22 +139,24 @@ public class PicturesViewModel extends AndroidViewModel {
                     Thread.currentThread().interrupt();
                 }
 
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                
+                // Filter by filename, date, OR tag match
                 filteredList = filteredList.stream()
                         .filter(image -> {
+                            // Check if matches by filename
                             if (image.getDisplayName() != null && image.getDisplayName().toLowerCase().contains(lowerCaseQuery)) {
                                 return true;
                             }
+                            // Check if matches by date
                             String formattedDate = sdf.format(new Date(image.getDateAdded() * 1000L));
-                            return formattedDate.contains(lowerCaseQuery);
+                            if (formattedDate.contains(lowerCaseQuery)) {
+                                return true;
+                            }
+                            // Check if matches by tag
+                            return tagMatchingImages.contains(image);
                         })
                         .collect(Collectors.toList());
-
-                // Combine results, avoiding duplicates
-                for (Image tagResult : tagResults) {
-                    if (!filteredList.contains(tagResult)) {
-                        filteredList.add(tagResult);
-                    }
-                }
             }
 
             if (currentSortOrder == SortOrder.DATE_ASC) {

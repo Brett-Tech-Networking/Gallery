@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -11,7 +12,86 @@
         android:id="@+id/video_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="center"
-        tools:ignore="MissingConstraints" />
+        android:layout_gravity="center" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <!-- Custom Controls Overlay -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/controls_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#00000000">
+
+        <!-- Screenshot FAB -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab_screenshot"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginBottom="24dp"
+            android:contentDescription="Take Screenshot"
+            android:src="@android:drawable/ic_menu_camera"
+            app:backgroundTint="#CC000000"
+            app:tint="#FFFFFF"
+            app:borderWidth="0dp"
+            app:elevation="2dp"
+            app:layout_constraintBottom_toTopOf="@id/bottom_controls_container"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <!-- Bottom Controls Container -->
+        <LinearLayout
+            android:id="@+id/bottom_controls_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#80000000"
+            android:padding="8dp"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <!-- SeekBar -->
+            <SeekBar
+                android:id="@+id/video_seekbar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="4dp" />
+
+            <!-- Playback Controls -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tv_current_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="00:00"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:paddingEnd="16dp" />
+
+                <ImageButton
+                    android:id="@+id/btn_play_pause"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_media_pause"
+                    app:tint="@android:color/white"
+                    android:contentDescription="Play/Pause" />
+
+                <TextView
+                    android:id="@+id/tv_total_time"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="00:00"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:gravity="end" />
+
+            </LinearLayout>
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</FrameLayout>

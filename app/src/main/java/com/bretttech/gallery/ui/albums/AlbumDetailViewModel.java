@@ -9,25 +9,40 @@ import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+import com.bretttech.gallery.data.ImageDetailsManager;
 import com.bretttech.gallery.ui.pictures.Image;
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 public class AlbumDetailViewModel extends AndroidViewModel {
 
     private final MutableLiveData<List<Image>> images = new MutableLiveData<>();
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ImageDetailsManager imageDetailsManager;
+    private List<Image> allImages = new ArrayList<>();
+    private String currentSearchQuery = null;
 
     public AlbumDetailViewModel(@NonNull Application application) {
         super(application);
+        imageDetailsManager = new ImageDetailsManager(application);
     }
 
     public LiveData<List<Image>> getImages() {
         return images;
+    }
+
+    public void searchImages(String query) {
+        currentSearchQuery = query;
+        filterImages();
     }
 
     public void loadImagesFromAlbum(String folderPath) {
@@ -41,7 +56,61 @@ public class AlbumDetailViewModel extends AndroidViewModel {
             // Sort by date added, newest first
             imageList.sort(Comparator.comparingLong(Image::getDateAdded).reversed());
 
-            images.postValue(imageList);
+            allImages = imageList;
+            filterImages();
+        });
+    }
+
+    private void filterImages() {
+        executorService.execute(() -> {
+            List<Image> filteredList = new ArrayList<>(allImages);
+
+            if (currentSearchQuery != null && !currentSearchQuery.isEmpty()) {
+                String lowerCaseQuery = currentSearchQuery.toLowerCase();
+                List<Image> tagMatchingImages = new ArrayList<>();
+                CountDownLatch latch = new CountDownLatch(filteredList.size());
+
+                // Check all images for tag matches
+                for (Image image : filteredList) {
+                    imageDetailsManager.getImageDetails(image.getUri(), details -> {
+                        boolean tagMatch = details.getTags().stream()
+                                .anyMatch(tag -> tag.toLowerCase().contains(lowerCaseQuery));
+                        if (tagMatch) {
+                            synchronized (tagMatchingImages) {
+                                tagMatchingImages.add(image);
+                            }
+                        }
+                        latch.countDown();
+                    });
+                }
+
+                try {
+                    latch.await(); // Wait for all tag lookups to complete
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
+                // Filter by filename, date, OR tag match
+                filteredList = filteredList.stream()
+                        .filter(image -> {
+                            // Check if matches by filename
+                            if (image.getDisplayName() != null && image.getDisplayName().toLowerCase().contains(lowerCaseQuery)) {
+                                return true;
+                            }
+                            // Check if matches by date
+                            String formattedDate = sdf.format(new Date(image.getDateAdded() * 1000L));
+                            if (formattedDate.contains(lowerCaseQuery)) {
+                                return true;
+                            }
+                            // Check if matches by tag
+                            return tagMatchingImages.contains(image);
+                        })
+                        .collect(Collectors.toList());
+            }
+
+            images.postValue(filteredList);
         });
     }
 
