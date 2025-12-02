@@ -65,6 +65,17 @@ public class SettingsActivity extends AppCompatActivity {
         setupAlbumBordersToggle();
         setupAlbumBorderColorPicker();
         setupAlbumBorderWidth();
+        setupPrivacyPolicy();
+    }
+
+    private void setupPrivacyPolicy() {
+        Button privacyPolicyButton = findViewById(R.id.privacy_policy_button);
+        privacyPolicyButton.setOnClickListener(v -> {
+            String url = "https://www.google.com"; // Replace with actual privacy policy URL
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setData(android.net.Uri.parse(url));
+            startActivity(i);
+        });
     }
 
     private void setupBottomNavColorPicker() {

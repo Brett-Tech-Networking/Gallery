@@ -54,9 +54,16 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
     private FavoritesManager favoritesManager;
     private SharedViewModel sharedViewModel; // Added for communication
 
-    private final ActivityResultLauncher<String> requestPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
-                if (isGranted) {
+    private final ActivityResultLauncher<String[]> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                boolean allGranted = true;
+                for (Boolean granted : result.values()) {
+                    if (!granted) {
+                        allGranted = false;
+                        break;
+                    }
+                }
+                if (allGranted) {
                     picturesViewModel.loadImages();
                 } else {
                     Toast.makeText(getContext(), "Permission denied to read your External storage", Toast.LENGTH_SHORT).show();
@@ -306,17 +313,21 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
     }
 
     private void requestStoragePermission() {
-        String permission;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permission = Manifest.permission.READ_MEDIA_IMAGES;
+            String[] permissions = {Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO};
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED) {
+                picturesViewModel.loadImages();
+            } else {
+                requestPermissionLauncher.launch(permissions);
+            }
         } else {
-            permission = Manifest.permission.READ_EXTERNAL_STORAGE;
-        }
-
-        if (ContextCompat.checkSelfPermission(requireContext(), permission) == PackageManager.PERMISSION_GRANTED) {
-            picturesViewModel.loadImages();
-        } else {
-            requestPermissionLauncher.launch(permission);
+            String permission = Manifest.permission.READ_EXTERNAL_STORAGE;
+            if (ContextCompat.checkSelfPermission(requireContext(), permission) == PackageManager.PERMISSION_GRANTED) {
+                picturesViewModel.loadImages();
+            } else {
+                requestPermissionLauncher.launch(new String[]{permission});
+            }
         }
     }
 
