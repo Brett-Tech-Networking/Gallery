@@ -69,20 +69,22 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     private RecyclerView recyclerView;
     private static final String PREF_ALBUM_COLUMNS = "album_columns";
 
-    private final ActivityResultLauncher<String> requestPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+    private final ActivityResultLauncher<String> requestPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (isGranted) {
                     showCreateAlbumDialog();
                 } else {
-                    Toast.makeText(getContext(), "Permission denied to write to your External storage", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Permission denied to write to your External storage",
+                            Toast.LENGTH_SHORT).show();
                 }
             });
 
-    private final ActivityResultLauncher<Intent> changeCoverLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+    private final ActivityResultLauncher<Intent> changeCoverLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == AppCompatActivity.RESULT_OK && result.getData() != null) {
                     Uri newCoverUri = result.getData().getData();
-                    int mediaType = result.getData().getIntExtra(ChangeCoverActivity.RESULT_COVER_MEDIA_TYPE, Image.MEDIA_TYPE_IMAGE);
+                    int mediaType = result.getData().getIntExtra(ChangeCoverActivity.RESULT_COVER_MEDIA_TYPE,
+                            Image.MEDIA_TYPE_IMAGE);
                     if (newCoverUri != null && !albumsAdapter.getSelectedAlbums().isEmpty()) {
                         String albumPath = albumsAdapter.getSelectedAlbums().get(0).getFolderPath();
                         albumsViewModel.setAlbumCover(albumPath, newCoverUri, mediaType);
@@ -91,8 +93,8 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
                 }
             });
 
-    private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
+    private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartIntentSenderForResult(), result -> {
                 if (result.getResultCode() == Activity.RESULT_OK) {
                     Toast.makeText(getContext(), "Album contents moved to trash.", Toast.LENGTH_SHORT).show();
                     if (mFoldersToDelete != null && !mFoldersToDelete.isEmpty()) {
@@ -116,7 +118,8 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_albums, container, false);
 
         recyclerView = root.findViewById(R.id.recycler_view_albums);
@@ -160,34 +163,37 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     }
 
     private void setupPinchToZoom() {
-        scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            @Override
-            public boolean onScale(ScaleGestureDetector detector) {
-                SharedPreferences prefs = requireActivity().getPreferences(Context.MODE_PRIVATE);
-                SharedPreferences.Editor editor = prefs.edit();
+        scaleGestureDetector = new ScaleGestureDetector(getContext(),
+                new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    @Override
+                    public boolean onScale(ScaleGestureDetector detector) {
+                        SharedPreferences prefs = requireActivity().getPreferences(Context.MODE_PRIVATE);
+                        SharedPreferences.Editor editor = prefs.edit();
 
-                if (detector.getScaleFactor() > 1.0f) {
-                    // Pinching out
-                    if (gridLayoutManager.getSpanCount() > 2) {
-                        TransitionManager.beginDelayedTransition(recyclerView, new AutoTransition().setDuration(250));
-                        gridLayoutManager.setSpanCount(2);
-                        editor.putInt(PREF_ALBUM_COLUMNS, 2);
-                        editor.apply();
-                        albumsAdapter.setSpanCount(2);
+                        if (detector.getScaleFactor() > 1.0f) {
+                            // Pinching out
+                            if (gridLayoutManager.getSpanCount() > 2) {
+                                TransitionManager.beginDelayedTransition(recyclerView,
+                                        new AutoTransition().setDuration(250));
+                                gridLayoutManager.setSpanCount(2);
+                                editor.putInt(PREF_ALBUM_COLUMNS, 2);
+                                editor.apply();
+                                albumsAdapter.setSpanCount(2);
+                            }
+                        } else {
+                            // Pinching in
+                            if (gridLayoutManager.getSpanCount() < 3) {
+                                TransitionManager.beginDelayedTransition(recyclerView,
+                                        new AutoTransition().setDuration(250));
+                                gridLayoutManager.setSpanCount(3);
+                                editor.putInt(PREF_ALBUM_COLUMNS, 3);
+                                editor.apply();
+                                albumsAdapter.setSpanCount(3);
+                            }
+                        }
+                        return true;
                     }
-                } else {
-                    // Pinching in
-                    if (gridLayoutManager.getSpanCount() < 3) {
-                        TransitionManager.beginDelayedTransition(recyclerView, new AutoTransition().setDuration(250));
-                        gridLayoutManager.setSpanCount(3);
-                        editor.putInt(PREF_ALBUM_COLUMNS, 3);
-                        editor.apply();
-                        albumsAdapter.setSpanCount(3);
-                    }
-                }
-                return true;
-            }
-        });
+                });
 
         recyclerView.setOnTouchListener((v, event) -> {
             scaleGestureDetector.onTouchEvent(event);
@@ -253,8 +259,8 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
 
     private void requestStoragePermissionAndShowCreateAlbumDialog() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(requireContext(),
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
             } else {
                 showCreateAlbumDialog();
@@ -318,8 +324,10 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
         NavController navController = NavHostFragment.findNavController(this);
         Bundle bundle = new Bundle();
         bundle.putString("albumFolderPath", album.getFolderPath());
+        bundle.putLong("bucketId", album.getBucketId());
 
-        // UPDATED: Dynamically select and apply NavOptions based on animation preference
+        // UPDATED: Dynamically select and apply NavOptions based on animation
+        // preference
         NavOptions navOptions = null;
         String animationType = SettingsActivity.getAnimationType(requireContext());
 
@@ -347,7 +355,8 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
                     .build();
         }
 
-        // If animationType is ANIMATION_OFF, navOptions remains null and default transition is used.
+        // If animationType is ANIMATION_OFF, navOptions remains null and default
+        // transition is used.
         navController.navigate(R.id.action_navigation_albums_to_albumDetailFragment, bundle, navOptions);
     }
 
@@ -366,7 +375,8 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
     @Override
     public boolean onActionItemClicked(androidx.appcompat.view.ActionMode mode, MenuItem item) {
         List<Album> selectedAlbums = new ArrayList<>(albumsAdapter.getSelectedAlbums());
-        if (selectedAlbums.isEmpty()) return false;
+        if (selectedAlbums.isEmpty())
+            return false;
 
         int itemId = item.getItemId();
         if (itemId == R.id.action_delete_album) {
@@ -386,11 +396,14 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
         return false;
     }
 
-    private void showDeleteConfirmation(final List<Album> albumsToDelete, final androidx.appcompat.view.ActionMode mode) {
+    private void showDeleteConfirmation(final List<Album> albumsToDelete,
+            final androidx.appcompat.view.ActionMode mode) {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Delete " + albumsToDelete.size() + " Album(s)?")
-                // .setMessage("This will move all photos inside to the trash and permanently delete the album folder. This action cannot be undone.")
-                .setMessage("This will delete all photos inside and permanently delete the album folder. This action cannot be undone.")
+                // .setMessage("This will move all photos inside to the trash and permanently
+                // delete the album folder. This action cannot be undone.")
+                .setMessage(
+                        "This will delete all photos inside and permanently delete the album folder. This action cannot be undone.")
 
                 .setPositiveButton("Delete", (dialog, which) -> {
                     startAlbumDeletionProcess(albumsToDelete);
@@ -445,11 +458,12 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
 
     private List<Uri> queryMedia(Context context, Uri contentUri, String folderPath) {
         List<Uri> uris = new ArrayList<>();
-        String[] projection = {MediaStore.MediaColumns._ID};
+        String[] projection = { MediaStore.MediaColumns._ID };
         String selection = MediaStore.MediaColumns.DATA + " LIKE ?";
-        String[] selectionArgs = {folderPath + "/%"};
+        String[] selectionArgs = { folderPath + "/%" };
 
-        try (Cursor cursor = context.getContentResolver().query(contentUri, projection, selection, selectionArgs, null)) {
+        try (Cursor cursor = context.getContentResolver().query(contentUri, projection, selection, selectionArgs,
+                null)) {
             if (cursor != null) {
                 while (cursor.moveToNext()) {
                     long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
@@ -462,7 +476,6 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
         return uris;
     }
 
-
     private void requestTrash(Context context, List<Uri> urisToTrash) {
         ContentResolver resolver = context.getContentResolver();
 
@@ -474,7 +487,8 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
             } catch (Exception e) {
                 Log.e("AlbumsFragment", "Error creating trash request for Android R+", e);
                 if (isAdded()) {
-                    requireActivity().runOnUiThread(() -> Toast.makeText(context, "Error creating trash request.", Toast.LENGTH_SHORT).show());
+                    requireActivity().runOnUiThread(
+                            () -> Toast.makeText(context, "Error creating trash request.", Toast.LENGTH_SHORT).show());
                 }
             }
         } else {
@@ -486,12 +500,14 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
             } catch (SecurityException e) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e instanceof RecoverableSecurityException) {
                     RecoverableSecurityException rse = (RecoverableSecurityException) e;
-                    IntentSenderRequest request = new IntentSenderRequest.Builder(rse.getUserAction().getActionIntent().getIntentSender()).build();
+                    IntentSenderRequest request = new IntentSenderRequest.Builder(
+                            rse.getUserAction().getActionIntent().getIntentSender()).build();
                     trashResultLauncher.launch(request);
                 } else {
                     Log.e("AlbumsFragment", "SecurityException on pre-R device.", e);
                     if (isAdded()) {
-                        requireActivity().runOnUiThread(() -> Toast.makeText(context, "Permission denied.", Toast.LENGTH_SHORT).show());
+                        requireActivity().runOnUiThread(
+                                () -> Toast.makeText(context, "Permission denied.", Toast.LENGTH_SHORT).show());
                     }
                 }
             }
@@ -500,7 +516,10 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
 
     private void deleteFolders(List<File> folders) {
         executor.execute(() -> {
-            try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ignored) {
+            }
 
             for (File folder : folders) {
                 if (folder.exists()) {
@@ -525,7 +544,6 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
         }
         dir.delete();
     }
-
 
     @Override
     public void onDestroyActionMode(androidx.appcompat.view.ActionMode mode) {

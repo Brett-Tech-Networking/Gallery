@@ -8,15 +8,18 @@ public class Album {
     public Uri coverImageUri; // Made public for easier modification
     private int imageCount;
     private final String folderPath;
+    private final long bucketId; // NEW: Store bucket ID
     private int coverMediaType;
     private final long dateAdded;
-    private long cacheBusterId = 0; // NEW: Field to force Glide to reload
+    private long cacheBusterId = 0;
 
-    public Album(String name, Uri coverImageUri, int imageCount, String folderPath, int coverMediaType, long dateAdded) {
+    public Album(String name, Uri coverImageUri, int imageCount, String folderPath, long bucketId, int coverMediaType,
+            long dateAdded) {
         this.name = name;
         this.coverImageUri = coverImageUri;
         this.imageCount = imageCount;
         this.folderPath = folderPath;
+        this.bucketId = bucketId;
         this.coverMediaType = coverMediaType;
         this.dateAdded = dateAdded;
     }
@@ -35,6 +38,10 @@ public class Album {
 
     public String getFolderPath() {
         return folderPath;
+    }
+
+    public long getBucketId() {
+        return bucketId;
     }
 
     public int getCoverMediaType() {

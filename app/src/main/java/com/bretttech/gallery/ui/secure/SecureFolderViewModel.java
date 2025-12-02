@@ -39,7 +39,8 @@ public class SecureFolderViewModel extends AndroidViewModel {
                         if (images != null && images.length > 0) {
                             // Use the first image as the cover
                             Uri coverUri = Uri.fromFile(images[0]);
-                            albums.add(new Album(albumDir.getName(), coverUri, images.length, albumDir.getAbsolutePath(), Image.MEDIA_TYPE_IMAGE, albumDir.lastModified()));
+                            albums.add(new Album(albumDir.getName(), coverUri, images.length,
+                                    albumDir.getAbsolutePath(), 0, Image.MEDIA_TYPE_IMAGE, albumDir.lastModified()));
                         }
                     }
                 }

@@ -37,7 +37,7 @@ public class ChangeCoverActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new GridLayoutManager(this, 3));
 
         AlbumDetailViewModel viewModel = new ViewModelProvider(this).get(AlbumDetailViewModel.class);
-        viewModel.loadImagesFromAlbum(albumPath);
+        viewModel.loadImagesFromAlbum(albumPath, 0);
         viewModel.getImages().observe(this, images -> {
             PicturesAdapter adapter = new PicturesAdapter(image -> {
                 Intent resultIntent = new Intent();

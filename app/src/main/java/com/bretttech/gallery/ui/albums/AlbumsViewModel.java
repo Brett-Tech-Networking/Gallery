@@ -49,11 +49,14 @@ public class AlbumsViewModel extends AndroidViewModel {
         DATE_DESC, DATE_ASC, NAME_ASC, NAME_DESC, COUNT_DESC, COUNT_ASC
     }
 
+    private final MutableLiveData<Set<String>> hiddenAlbums = new MutableLiveData<>();
+
     public AlbumsViewModel(@NonNull Application application) {
         super(application);
         albumCoverRepository = new AlbumCoverRepository(application.getApplicationContext());
         visibilityManager = new AlbumVisibilityManager(application.getApplicationContext());
         imageDetailsManager = new ImageDetailsManager(application);
+        hiddenAlbums.setValue(visibilityManager.getHiddenAlbumPaths());
         loadAlbums();
     }
 
@@ -65,7 +68,43 @@ public class AlbumsViewModel extends AndroidViewModel {
         return allAlbumsUnfilteredLiveData;
     }
 
+    public LiveData<Set<String>> getHiddenAlbums() {
+        return hiddenAlbums;
+    }
+
+    public void setAllAlbumsVisibility(List<String> albumPaths, boolean isHidden) {
+        // Optimistic update on Main Thread
+        Set<String> current = hiddenAlbums.getValue();
+        if (current == null)
+            current = new HashSet<>();
+        Set<String> updated = new HashSet<>(current);
+
+        if (isHidden) {
+            updated.addAll(albumPaths);
+        } else {
+            updated.removeAll(albumPaths);
+        }
+        hiddenAlbums.setValue(updated);
+
+        // Persist on Background Thread
+        executorService.execute(() -> {
+            visibilityManager.setAlbumsHidden(albumPaths, isHidden);
+        });
+    }
+
     public void setAlbumVisibility(String albumPath, boolean isHidden) {
+        // Optimistic update on Main Thread
+        Set<String> current = hiddenAlbums.getValue();
+        if (current == null)
+            current = new HashSet<>();
+        Set<String> updated = new HashSet<>(current);
+        if (isHidden) {
+            updated.add(albumPath);
+        } else {
+            updated.remove(albumPath);
+        }
+        hiddenAlbums.setValue(updated);
+
         executorService.execute(() -> {
             visibilityManager.setAlbumHidden(albumPath, isHidden);
         });
@@ -97,7 +136,8 @@ public class AlbumsViewModel extends AndroidViewModel {
     }
 
     public static void scanFile(Context context, Uri uri) {
-        if (context == null) return;
+        if (context == null)
+            return;
         Intent scanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
         scanIntent.setData(uri);
         context.sendBroadcast(scanIntent);
@@ -109,11 +149,11 @@ public class AlbumsViewModel extends AndroidViewModel {
                 return;
             }
         }
-        Album newAlbum = new Album(albumName, null, 0, albumPath, Image.MEDIA_TYPE_IMAGE, System.currentTimeMillis() / 1000);
+        Album newAlbum = new Album(albumName, null, 0, albumPath, 0, Image.MEDIA_TYPE_IMAGE,
+                System.currentTimeMillis() / 1000);
         allAlbums.add(newAlbum);
         filterAndSortAlbums();
     }
-
 
     private void filterAndSortAlbums() {
         executorService.execute(() -> {
@@ -123,24 +163,24 @@ public class AlbumsViewModel extends AndroidViewModel {
             if (currentSearchQuery != null && !currentSearchQuery.isEmpty()) {
                 String lowerCaseQuery = currentSearchQuery.toLowerCase();
                 Set<String> albumsWithMatchingTags = new HashSet<>();
-                
+
                 // Check for tag matches in each album
                 AtomicInteger pendingChecks = new AtomicInteger(albumImageUrisMap.size());
                 CountDownLatch latch = new CountDownLatch(1);
-                
+
                 for (Map.Entry<String, List<Uri>> entry : albumImageUrisMap.entrySet()) {
                     String albumPath = entry.getKey();
                     List<Uri> imageUris = entry.getValue();
-                    
+
                     if (imageUris.isEmpty()) {
                         if (pendingChecks.decrementAndGet() == 0) {
                             latch.countDown();
                         }
                         continue;
                     }
-                    
+
                     AtomicInteger imageChecks = new AtomicInteger(imageUris.size());
-                    
+
                     for (Uri imageUri : imageUris) {
                         imageDetailsManager.getImageDetails(imageUri, details -> {
                             boolean tagMatch = details.getTags().stream()
@@ -150,7 +190,7 @@ public class AlbumsViewModel extends AndroidViewModel {
                                     albumsWithMatchingTags.add(albumPath);
                                 }
                             }
-                            
+
                             if (imageChecks.decrementAndGet() == 0) {
                                 if (pendingChecks.decrementAndGet() == 0) {
                                     latch.countDown();
@@ -159,17 +199,17 @@ public class AlbumsViewModel extends AndroidViewModel {
                         });
                     }
                 }
-                
+
                 try {
                     latch.await();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
-                
+
                 // Filter by album name OR if album contains images with matching tags
                 processedList = processedList.stream()
                         .filter(album -> album.getName().toLowerCase().contains(lowerCaseQuery) ||
-                                        albumsWithMatchingTags.contains(album.getFolderPath()))
+                                albumsWithMatchingTags.contains(album.getFolderPath()))
                         .collect(Collectors.toList());
             }
 
@@ -181,7 +221,8 @@ public class AlbumsViewModel extends AndroidViewModel {
                     secondaryComparator = Comparator.comparing(Album::getName, String.CASE_INSENSITIVE_ORDER);
                     break;
                 case NAME_DESC:
-                    secondaryComparator = Comparator.comparing(Album::getName, String.CASE_INSENSITIVE_ORDER).reversed();
+                    secondaryComparator = Comparator.comparing(Album::getName, String.CASE_INSENSITIVE_ORDER)
+                            .reversed();
                     break;
                 case COUNT_DESC:
                     secondaryComparator = Comparator.comparing(Album::getImageCount).reversed();
@@ -201,8 +242,10 @@ public class AlbumsViewModel extends AndroidViewModel {
             Comparator<Album> primaryComparator = (a1, a2) -> {
                 boolean isA1Camera = a1.getName().equalsIgnoreCase("Camera");
                 boolean isA2Camera = a2.getName().equalsIgnoreCase("Camera");
-                if (isA1Camera && !isA2Camera) return -1;
-                if (!isA1Camera && isA2Camera) return 1;
+                if (isA1Camera && !isA2Camera)
+                    return -1;
+                if (!isA1Camera && isA2Camera)
+                    return 1;
                 return 0;
             };
 
@@ -218,18 +261,45 @@ public class AlbumsViewModel extends AndroidViewModel {
 
     public void loadAlbums() {
         executorService.execute(() -> {
-            Map<String, Album> albumMap = new HashMap<>();
-            Map<String, List<Uri>> imageMap = new HashMap<>();
+            // Map<BucketId, Album>
+            Map<Long, Album> albumMap = new HashMap<>();
+            // Map<BucketId, List<Uri>>
+            Map<Long, List<Uri>> imageMap = new HashMap<>();
+            // Map<BucketId, String> to track folder paths for custom covers
+            Map<Long, String> bucketPathMap = new HashMap<>();
 
             String securePathPrefix = getApplication().getFilesDir().getAbsolutePath() + File.separator + "secure";
-            String[] projection = {
-                    MediaStore.Files.FileColumns.DATA,
-                    MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
-                    MediaStore.Files.FileColumns._ID,
-                    MediaStore.Files.FileColumns.MEDIA_TYPE,
-                    MediaStore.Files.FileColumns.DATE_ADDED
-            };
-            String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?) AND " + MediaStore.Files.FileColumns.DATA + " NOT LIKE ?";
+
+            // Use BUCKET_ID for grouping (more reliable than path string)
+            String[] projection;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                projection = new String[] {
+                        MediaStore.Files.FileColumns.DATA,
+                        MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
+                        MediaStore.Files.FileColumns.BUCKET_ID,
+                        MediaStore.Files.FileColumns._ID,
+                        MediaStore.Files.FileColumns.MEDIA_TYPE,
+                        MediaStore.Files.FileColumns.DATE_ADDED
+                };
+            } else {
+                projection = new String[] {
+                        MediaStore.Files.FileColumns.DATA,
+                        MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME,
+                        "bucket_id", // Literal string for pre-Q
+                        MediaStore.Files.FileColumns._ID,
+                        MediaStore.Files.FileColumns.MEDIA_TYPE,
+                        MediaStore.Files.FileColumns.DATE_ADDED
+                };
+            }
+
+            String selection = MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?) AND "
+                    + MediaStore.Files.FileColumns.DATA + " NOT LIKE ?";
+
+            // Add IS_TRASHED filter for Android R+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                selection += " AND " + MediaStore.MediaColumns.IS_TRASHED + " != 1";
+            }
+
             String[] selectionArgs = {
                     String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE),
                     String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO),
@@ -241,36 +311,67 @@ public class AlbumsViewModel extends AndroidViewModel {
                     MediaStore.Files.getContentUri("external"),
                     projection, selection, selectionArgs, sortOrder)) {
                 if (cursor != null) {
+                    int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID);
+                    int mediaTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE);
+                    int dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED);
+                    int bucketIdColumn = -1;
+
+                    // Handle bucket_id column index safely
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        bucketIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_ID);
+                    } else {
+                        bucketIdColumn = cursor.getColumnIndex("bucket_id");
+                    }
+
+                    int dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA);
+                    int bucketNameColumn = cursor
+                            .getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME);
+
                     while (cursor.moveToNext()) {
-                        String path = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA));
-                        File parentFile = new File(path).getParentFile();
-                        if (parentFile == null || parentFile.getAbsolutePath() == null || parentFile.getName().startsWith(".")) {
-                            continue;
+                        long bucketId = 0;
+                        if (bucketIdColumn != -1) {
+                            bucketId = cursor.getLong(bucketIdColumn);
+                        } else {
+                            // Fallback for very old devices if bucket_id is missing (unlikely)
+                            String path = cursor.getString(dataColumn);
+                            File parent = new File(path).getParentFile();
+                            bucketId = parent != null ? parent.getAbsolutePath().hashCode() : 0;
                         }
 
-                        String folderPath = parentFile.getAbsolutePath();
-                        Album album = albumMap.get(folderPath);
-
-                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID));
-                        int mediaType = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE));
+                        long id = cursor.getLong(idColumn);
+                        int mediaType = cursor.getInt(mediaTypeColumn);
                         Uri coverUri = (mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
                                 ? ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
                                 : ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
 
                         // Track image URIs for each album
-                        imageMap.computeIfAbsent(folderPath, k -> new ArrayList<>()).add(coverUri);
+                        imageMap.computeIfAbsent(bucketId, k -> new ArrayList<>()).add(coverUri);
 
+                        Album album = albumMap.get(bucketId);
                         if (album == null) {
-                            String albumName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME));
-                            long dateAdded = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED));
-                            album = new Album(albumName, coverUri, 1, folderPath, mediaType, dateAdded);
-                            albumMap.put(folderPath, album);
+                            String path = cursor.getString(dataColumn);
+                            File parentFile = new File(path).getParentFile();
+                            if (parentFile == null)
+                                continue;
+
+                            String folderPath = parentFile.getAbsolutePath();
+                            bucketPathMap.put(bucketId, folderPath);
+
+                            String albumName = cursor.getString(bucketNameColumn);
+                            // Fallback name if bucket name is null
+                            if (albumName == null) {
+                                albumName = parentFile.getName();
+                            }
+
+                            long dateAdded = cursor.getLong(dateAddedColumn);
+                            album = new Album(albumName, coverUri, 1, folderPath, bucketId, mediaType, dateAdded);
+                            albumMap.put(bucketId, album);
                         } else {
                             album.incrementImageCount();
-                            if (album.getImageCount() == 1) {
-                                album.setCoverImageUri(coverUri);
-                                album.setCoverMediaType(mediaType);
-                            }
+                            // Since we sort by DATE_ADDED DESC, the first item is the newest (cover).
+                            // We don't need to update cover unless we want specific logic.
+                            // The original logic updated it if count == 1, which is effectively the first
+                            // item.
                         }
                     }
                 }
@@ -279,7 +380,8 @@ public class AlbumsViewModel extends AndroidViewModel {
             List<Album> finalAlbums = new ArrayList<>(albumMap.values());
 
             // Remove empty or invalid albums
-            finalAlbums.removeIf(album -> album == null || album.getImageCount() <= 0 || album.getCoverImageUri() == null);
+            finalAlbums
+                    .removeIf(album -> album == null || album.getImageCount() <= 0 || album.getCoverImageUri() == null);
 
             for (Album album : finalAlbums) {
                 Uri customCover = albumCoverRepository.getCustomCover(album.getFolderPath());
@@ -290,7 +392,17 @@ public class AlbumsViewModel extends AndroidViewModel {
             }
 
             allAlbums = finalAlbums;
-            albumImageUrisMap = imageMap;
+
+            // Rebuild albumImageUrisMap using paths as keys (since search uses paths)
+            Map<String, List<Uri>> newImageMap = new HashMap<>();
+            for (Map.Entry<Long, List<Uri>> entry : imageMap.entrySet()) {
+                String path = bucketPathMap.get(entry.getKey());
+                if (path != null) {
+                    newImageMap.put(path, entry.getValue());
+                }
+            }
+            albumImageUrisMap = newImageMap;
+
             allAlbumsUnfilteredLiveData.postValue(new ArrayList<>(allAlbums));
             filterAndSortAlbums();
         });

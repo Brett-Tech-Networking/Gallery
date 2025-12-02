@@ -29,9 +29,9 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
     private final List<Album> selectedAlbums = new ArrayList<>();
     private int spanCount;
 
-
     public interface OnAlbumClickListener {
         void onAlbumClick(Album album);
+
         void onAlbumLongClick(Album album);
     }
 
@@ -90,14 +90,12 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
         notifyDataSetChanged();
     }
 
-
     static class AlbumViewHolder extends RecyclerView.ViewHolder {
         private final ImageView albumCover;
         private final TextView albumName;
         private final TextView albumImageCount;
         private final ImageView videoIndicator;
         private final View selectionOverlay;
-
 
         public AlbumViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -126,15 +124,14 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
                 Glide.with(itemView.getContext())
                         .load(coverUri)
                         .signature(cacheSignature)
-                        .diskCacheStrategy(DiskCacheStrategy.NONE) // Force reload from disk
-                        .skipMemoryCache(true) // Don't use memory cache
+                        .diskCacheStrategy(DiskCacheStrategy.RESOURCE) // Use Resource cache (decoded image)
+                        // .skipMemoryCache(true) // Removed to allow memory caching
                         .centerCrop()
                         .placeholder(R.drawable.ic_album_placeholder)
                         .into(albumCover);
             } else {
                 albumCover.setImageResource(R.drawable.ic_album_placeholder);
             }
-
 
             if (album.isCoverVideo()) {
                 videoIndicator.setVisibility(View.VISIBLE);
@@ -158,7 +155,6 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
                     card.setStrokeWidth(0);
                 }
             }
-
 
             itemView.setOnClickListener(v -> listener.onAlbumClick(album));
             itemView.setOnLongClickListener(v -> {

@@ -45,13 +45,20 @@ public class AlbumDetailViewModel extends AndroidViewModel {
         filterImages();
     }
 
-    public void loadImagesFromAlbum(String folderPath) {
+    public void loadImagesFromAlbum(String folderPath, long bucketId) {
         executorService.execute(() -> {
             List<Image> imageList = new ArrayList<>();
-            // Query for images
-            queryMedia(imageList, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, folderPath, Image.MEDIA_TYPE_IMAGE);
-            // Query for videos
-            queryMedia(imageList, MediaStore.Video.Media.EXTERNAL_CONTENT_URI, folderPath, Image.MEDIA_TYPE_VIDEO);
+
+            // Use BUCKET_ID if available (preferred), otherwise fallback to path matching
+            if (bucketId != 0 && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                queryMediaByBucketId(imageList, MediaStore.Files.getContentUri("external"), bucketId);
+            } else {
+                // Fallback for older devices or missing bucketId
+                queryMediaByPath(imageList, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, folderPath,
+                        Image.MEDIA_TYPE_IMAGE);
+                queryMediaByPath(imageList, MediaStore.Video.Media.EXTERNAL_CONTENT_URI, folderPath,
+                        Image.MEDIA_TYPE_VIDEO);
+            }
 
             // Sort by date added, newest first
             imageList.sort(Comparator.comparingLong(Image::getDateAdded).reversed());
@@ -96,7 +103,8 @@ public class AlbumDetailViewModel extends AndroidViewModel {
                 filteredList = filteredList.stream()
                         .filter(image -> {
                             // Check if matches by filename
-                            if (image.getDisplayName() != null && image.getDisplayName().toLowerCase().contains(lowerCaseQuery)) {
+                            if (image.getDisplayName() != null
+                                    && image.getDisplayName().toLowerCase().contains(lowerCaseQuery)) {
                                 return true;
                             }
                             // Check if matches by date
@@ -114,16 +122,63 @@ public class AlbumDetailViewModel extends AndroidViewModel {
         });
     }
 
-    private void queryMedia(List<Image> images, Uri contentUri, String folderPath, int mediaType) {
+    private void queryMediaByBucketId(List<Image> images, Uri contentUri, long bucketId) {
+        String[] projection = {
+                MediaStore.Files.FileColumns._ID,
+                MediaStore.Files.FileColumns.DISPLAY_NAME,
+                MediaStore.Files.FileColumns.DATE_ADDED,
+                MediaStore.Files.FileColumns.MEDIA_TYPE
+        };
+
+        String selection = MediaStore.Files.FileColumns.BUCKET_ID + " = ? AND " +
+                MediaStore.Files.FileColumns.MEDIA_TYPE + " IN (?, ?)";
+
+        // Add IS_TRASHED filter for Android R+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            selection += " AND " + MediaStore.MediaColumns.IS_TRASHED + " != 1";
+        }
+
+        String[] selectionArgs = {
+                String.valueOf(bucketId),
+                String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE),
+                String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
+        };
+
+        try (Cursor cursor = getApplication().getContentResolver().query(contentUri, projection, selection,
+                selectionArgs, null)) {
+            if (cursor != null) {
+                int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID);
+                int displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME);
+                int dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED);
+                int mediaTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE);
+
+                while (cursor.moveToNext()) {
+                    long id = cursor.getLong(idColumn);
+                    String displayName = cursor.getString(displayNameColumn);
+                    long dateAdded = cursor.getLong(dateAddedColumn);
+                    int mediaType = cursor.getInt(mediaTypeColumn);
+
+                    Uri contentUriWithId = (mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO)
+                            ? ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+                            : ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+
+                    images.add(new Image(contentUriWithId, mediaType, displayName, dateAdded));
+                }
+            }
+        }
+    }
+
+    private void queryMediaByPath(List<Image> images, Uri contentUri, String folderPath, int mediaType) {
         String[] projection = {
                 MediaStore.MediaColumns._ID,
                 MediaStore.MediaColumns.DISPLAY_NAME,
                 MediaStore.MediaColumns.DATE_ADDED
         };
         String selection = MediaStore.MediaColumns.DATA + " LIKE ?";
-        String[] selectionArgs = new String[]{folderPath + File.separator + "%"};
+        String[] selectionArgs = new String[] { folderPath + File.separator + "%" };
 
-        try (Cursor cursor = getApplication().getContentResolver().query(contentUri, projection, selection, selectionArgs, null)) {
+        try (Cursor cursor = getApplication().getContentResolver().query(contentUri, projection, selection,
+                selectionArgs, null)) {
             if (cursor != null) {
                 int idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID);
                 int displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME);

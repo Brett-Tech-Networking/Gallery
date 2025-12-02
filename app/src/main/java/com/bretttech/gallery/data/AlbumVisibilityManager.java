@@ -17,8 +17,10 @@ public class AlbumVisibilityManager {
     }
 
     public Set<String> getHiddenAlbumPaths() {
-        // By default, SharedPreferences.getStringSet returns an empty set if the key doesn't exist.
-        // This ensures no albums are hidden by default on first install (Requirement 2).
+        // By default, SharedPreferences.getStringSet returns an empty set if the key
+        // doesn't exist.
+        // This ensures no albums are hidden by default on first install (Requirement
+        // 2).
         return new HashSet<>(sharedPreferences.getStringSet(KEY_HIDDEN_ALBUMS, new HashSet<>()));
     }
 
@@ -35,5 +37,20 @@ public class AlbumVisibilityManager {
         sharedPreferences.edit()
                 .putStringSet(KEY_HIDDEN_ALBUMS, newHiddenPaths)
                 .commit(); // MODIFIED: Use .commit() for synchronous write (Fixes toggle revert)
+    }
+
+    public void setAlbumsHidden(java.util.List<String> albumPaths, boolean isHidden) {
+        Set<String> hiddenPaths = getHiddenAlbumPaths();
+        Set<String> newHiddenPaths = new HashSet<>(hiddenPaths);
+
+        if (isHidden) {
+            newHiddenPaths.addAll(albumPaths);
+        } else {
+            newHiddenPaths.removeAll(albumPaths);
+        }
+
+        sharedPreferences.edit()
+                .putStringSet(KEY_HIDDEN_ALBUMS, newHiddenPaths)
+                .commit();
     }
 }

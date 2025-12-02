@@ -46,6 +46,9 @@ public class HiddenAlbumsAdapter extends RecyclerView.Adapter<HiddenAlbumsAdapte
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        // Remove previous listener to prevent unintended calls
+        holder.hideSwitch.setOnCheckedChangeListener(null);
+
         Album album = albums.get(position);
         holder.albumName.setText(album.getName());
 
@@ -72,22 +75,9 @@ public class HiddenAlbumsAdapter extends RecyclerView.Adapter<HiddenAlbumsAdapte
         holder.videoIndicator.setVisibility(album.isCoverVideo() ? View.VISIBLE : View.GONE);
         holder.hideSwitch.setText(isHidden ? R.string.status_hidden : R.string.status_visible);
 
-        // Remove previous listener to prevent unintended calls
-        holder.hideSwitch.setOnCheckedChangeListener(null);
-
         holder.hideSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             // UPDATED: Pass the album object and position to the listener.
             listener.onAlbumToggled(album, isChecked, position);
-
-            // FIX for Instant Revert: Optimistically update the internal set and the UI text
-            // This holds the visual state until the full LiveData reload occurs.
-            if (isChecked) {
-                hiddenPaths.add(album.getFolderPath());
-                buttonView.setText(R.string.status_hidden);
-            } else {
-                hiddenPaths.remove(album.getFolderPath());
-                buttonView.setText(R.string.status_visible);
-            }
         });
     }
 
@@ -96,15 +86,25 @@ public class HiddenAlbumsAdapter extends RecyclerView.Adapter<HiddenAlbumsAdapte
         return albums.size();
     }
 
+    public List<Album> getAlbums() {
+        return new ArrayList<>(albums);
+    }
+
     public void setAlbums(List<Album> newAlbums, Set<String> newHiddenPaths) {
         // Filter out Secure Folder albums
         this.albums.clear();
         for (Album album : newAlbums) {
-            // Check if the album is in the public section (not under the app's secure directory)
+            // Check if the album is in the public section (not under the app's secure
+            // directory)
             if (!album.getFolderPath().contains(secureFolderPath)) {
                 this.albums.add(album);
             }
         }
+        this.hiddenPaths = newHiddenPaths;
+        notifyDataSetChanged();
+    }
+
+    public void updateHiddenPaths(Set<String> newHiddenPaths) {
         this.hiddenPaths = newHiddenPaths;
         notifyDataSetChanged();
     }

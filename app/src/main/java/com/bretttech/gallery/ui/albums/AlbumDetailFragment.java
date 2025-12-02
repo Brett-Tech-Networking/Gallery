@@ -54,18 +54,19 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
     private PicturesAdapter picturesAdapter;
     private List<Image> images;
     private String albumFolderPath;
+    private long bucketId;
     private androidx.appcompat.view.ActionMode actionMode;
     private AlbumsViewModel albumsViewModel;
     private FavoritesManager favoritesManager;
 
-    private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
+    private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartIntentSenderForResult(), result -> {
                 if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
                     Toast.makeText(getContext(), "Item(s) moved to trash", Toast.LENGTH_SHORT).show();
                 } else {
                     Toast.makeText(getContext(), "Failed to move item(s) to trash", Toast.LENGTH_SHORT).show();
                 }
-                viewModel.loadImagesFromAlbum(albumFolderPath);
+                viewModel.loadImagesFromAlbum(albumFolderPath, bucketId);
             });
 
     @Override
@@ -76,18 +77,20 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
         albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
         favoritesManager = new FavoritesManager(requireContext());
 
-        getParentFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this, (requestKey, bundle) -> {
-            boolean success = bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS);
-            if (success) {
-                ArrayList<Uri> movedUris = bundle.getParcelableArrayList(MoveToAlbumDialogFragment.KEY_MOVED_URIS);
-                if (picturesAdapter != null && movedUris != null) {
-                    picturesAdapter.removeImagesByUri(movedUris);
-                }
-                if (albumsViewModel != null) {
-                    albumsViewModel.loadAlbums();
-                }
-            }
-        });
+        getParentFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this,
+                (requestKey, bundle) -> {
+                    boolean success = bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS);
+                    if (success) {
+                        ArrayList<Uri> movedUris = bundle
+                                .getParcelableArrayList(MoveToAlbumDialogFragment.KEY_MOVED_URIS);
+                        if (picturesAdapter != null && movedUris != null) {
+                            picturesAdapter.removeImagesByUri(movedUris);
+                        }
+                        if (albumsViewModel != null) {
+                            albumsViewModel.loadAlbums();
+                        }
+                    }
+                });
     }
 
     @Override
@@ -115,18 +118,20 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
+            @Nullable Bundle savedInstanceState) {
         binding = FragmentAlbumDetailBinding.inflate(inflater, container, false);
         viewModel = new ViewModelProvider(this).get(AlbumDetailViewModel.class);
 
         albumFolderPath = getArguments() != null ? getArguments().getString("albumFolderPath") : null;
+        bucketId = getArguments() != null ? getArguments().getLong("bucketId", 0) : 0;
 
         setupRecyclerView();
 
         if (albumFolderPath != null) {
-            viewModel.loadImagesFromAlbum(albumFolderPath);
+            viewModel.loadImagesFromAlbum(albumFolderPath, bucketId);
 
-            if (((AppCompatActivity) getActivity()) != null && ((AppCompatActivity) getActivity()).getSupportActionBar() != null) {
+            if (((AppCompatActivity) getActivity()) != null
+                    && ((AppCompatActivity) getActivity()).getSupportActionBar() != null) {
                 String albumName = new File(albumFolderPath).getName();
                 ((AppCompatActivity) getActivity()).getSupportActionBar().setTitle(albumName);
             }
@@ -144,7 +149,7 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
     public void onResume() {
         super.onResume();
         if (albumFolderPath != null && actionMode == null) {
-            viewModel.loadImagesFromAlbum(albumFolderPath);
+            viewModel.loadImagesFromAlbum(albumFolderPath, bucketId);
         }
     }
 
@@ -166,8 +171,7 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
                         }
                     }
                 },
-                this::toggleSelection
-        );
+                this::toggleSelection);
         binding.recyclerViewAlbumDetail.setLayoutManager(new GridLayoutManager(getContext(), 3));
         binding.recyclerViewAlbumDetail.setAdapter(picturesAdapter);
     }
@@ -229,17 +233,19 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
                 if (selectedImage.getMediaType() == Image.MEDIA_TYPE_VIDEO) {
                     Toast.makeText(getContext(), R.string.wallpaper_error, Toast.LENGTH_SHORT).show();
                 } else {
-                    Intent intent = new Intent(getContext (), WallpaperPreviewActivity.class);
+                    Intent intent = new Intent(getContext(), WallpaperPreviewActivity.class);
                     intent.putExtra(WallpaperPreviewActivity.EXTRA_IMAGE_URI, selectedImage.getUri());
                     startActivity(intent);
                 }
             }
             mode.finish();
         } else if (itemId == R.id.action_move_to_album) {
-            MoveToAlbumDialogFragment.newInstance(uris, false).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            MoveToAlbumDialogFragment.newInstance(uris, false).show(getParentFragmentManager(),
+                    MoveToAlbumDialogFragment.TAG);
             mode.finish();
         } else if (item.getItemId() == R.id.action_move_to_secure_folder) {
-            MoveToAlbumDialogFragment.newInstance(uris, true).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            MoveToAlbumDialogFragment.newInstance(uris, true).show(getParentFragmentManager(),
+                    MoveToAlbumDialogFragment.TAG);
             mode.finish();
         } else {
             return false;
@@ -271,7 +277,8 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
         ContentResolver contentResolver = requireContext().getContentResolver();
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                IntentSender intentSender = MediaStore.createTrashRequest(contentResolver, uris, true).getIntentSender();
+                IntentSender intentSender = MediaStore.createTrashRequest(contentResolver, uris, true)
+                        .getIntentSender();
                 trashResultLauncher.launch(new IntentSenderRequest.Builder(intentSender).build());
             } else {
                 if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
@@ -279,7 +286,8 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
                         try {
                             contentResolver.delete(uri, null, null);
                         } catch (RecoverableSecurityException e) {
-                            IntentSenderRequest request = new IntentSenderRequest.Builder(e.getUserAction().getActionIntent().getIntentSender()).build();
+                            IntentSenderRequest request = new IntentSenderRequest.Builder(
+                                    e.getUserAction().getActionIntent().getIntentSender()).build();
                             trashResultLauncher.launch(request);
                             return;
                         }
@@ -288,9 +296,10 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
                     for (Uri uri : uris) {
                         contentResolver.delete(uri, null, null);
                     }
-                    Toast.makeText(getContext(), uris.size() + " item(s) permanently deleted", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), uris.size() + " item(s) permanently deleted", Toast.LENGTH_SHORT)
+                            .show();
                 }
-                viewModel.loadImagesFromAlbum(albumFolderPath);
+                viewModel.loadImagesFromAlbum(albumFolderPath, bucketId);
             }
             for (Uri uri : uris) {
                 for (Image image : images) {
