@@ -183,7 +183,12 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
                     if (actionMode != null) {
                         toggleSelection(image);
                     } else {
-                        if (images != null && !images.isEmpty()) {
+                        if (Boolean.TRUE.equals(sharedViewModel.getIsSelectionMode().getValue())) {
+                            Intent resultIntent = new Intent();
+                            resultIntent.setData(image.getUri());
+                            requireActivity().setResult(AppCompatActivity.RESULT_OK, resultIntent);
+                            requireActivity().finish();
+                        } else if (images != null && !images.isEmpty()) {
                             ImageDataHolder.getInstance().setImageList(images);
                             Intent intent = new Intent(getContext(), PhotoViewActivity.class);
                             intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_POSITION, images.indexOf(image));

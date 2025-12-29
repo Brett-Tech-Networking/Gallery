@@ -40,6 +40,7 @@ import com.bretttech.gallery.databinding.FragmentAlbumDetailBinding;
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
 import com.bretttech.gallery.ui.pictures.PicturesAdapter;
+import com.bretttech.gallery.SharedViewModel;
 
 import java.io.File;
 import java.io.IOException;
@@ -226,7 +227,14 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
                     if (actionMode != null) {
                         toggleSelection(image);
                     } else {
-                        if (images != null && !images.isEmpty()) {
+                        SharedViewModel sharedViewModel = new ViewModelProvider(requireActivity())
+                                .get(SharedViewModel.class);
+                        if (Boolean.TRUE.equals(sharedViewModel.getIsSelectionMode().getValue())) {
+                            Intent resultIntent = new Intent();
+                            resultIntent.setData(image.getUri());
+                            requireActivity().setResult(AppCompatActivity.RESULT_OK, resultIntent);
+                            requireActivity().finish();
+                        } else if (images != null && !images.isEmpty()) {
                             ImageDataHolder.getInstance().setImageList(images);
                             Intent intent = new Intent(getContext(), PhotoViewActivity.class);
                             intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_POSITION, images.indexOf(image));

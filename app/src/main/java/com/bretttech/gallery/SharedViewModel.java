@@ -14,4 +14,14 @@ public class SharedViewModel extends ViewModel {
     public void requestRefresh() {
         refreshRequest.setValue(new Event<>(true));
     }
+
+    private final MutableLiveData<Boolean> isSelectionMode = new MutableLiveData<>(false);
+
+    public LiveData<Boolean> getIsSelectionMode() {
+        return isSelectionMode;
+    }
+
+    public void setIsSelectionMode(boolean isSelection) {
+        isSelectionMode.setValue(isSelection);
+    }
 }

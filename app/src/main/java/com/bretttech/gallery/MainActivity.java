@@ -32,8 +32,8 @@ public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private NavController navController;
 
-    private final ActivityResultLauncher<String[]> requestPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+    private final ActivityResultLauncher<String[]> requestPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 boolean allGranted = true;
                 for (Boolean granted : result.values()) {
                     if (!granted) {
@@ -76,13 +76,27 @@ public class MainActivity extends AppCompatActivity {
         navController = navHostFragment.getNavController();
 
         navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
-            if (destination.getId() != R.id.secureFolderFragment && destination.getId() != R.id.secureAlbumDetailFragment) {
+            if (destination.getId() != R.id.secureFolderFragment
+                    && destination.getId() != R.id.secureAlbumDetailFragment) {
                 GalleryApplication.isSecureFolderUnlocked = false;
             }
         });
 
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(binding.navView, navController);
+
+        // Check for picker intent
+        SharedViewModel sharedViewModel = new androidx.lifecycle.ViewModelProvider(this).get(SharedViewModel.class);
+        Intent intent = getIntent();
+        if (intent != null && (Intent.ACTION_PICK.equals(intent.getAction())
+                || Intent.ACTION_GET_CONTENT.equals(intent.getAction()))) {
+            sharedViewModel.setIsSelectionMode(true);
+            // Optionally hide bottom nav or change title? User might want full UI but with
+            // selection behavior.
+            // Let's keep UI as is, but logic changes.
+        } else {
+            sharedViewModel.setIsSelectionMode(false);
+        }
     }
 
     private void applyBottomNavColor(BottomNavigationView navView) {
@@ -100,16 +114,17 @@ public class MainActivity extends AppCompatActivity {
 
     private void checkStoragePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            String[] permissions = {Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO};
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
+            String[] permissions = { Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO };
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(this,
+                            Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissionLauncher.launch(permissions);
             }
         } else {
             String permission = Manifest.permission.READ_EXTERNAL_STORAGE;
-            if (ContextCompat.checkSelfPermission(this, permission)
-                    != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(new String[]{permission});
+            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(new String[] { permission });
             }
         }
     }
