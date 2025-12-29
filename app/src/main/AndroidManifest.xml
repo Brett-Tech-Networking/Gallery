@@ -78,13 +78,13 @@
         <activity
             android:name=".PhotoViewActivity"
             android:exported="false"
-            android:theme="@style/Theme.Gallery"
+            android:theme="@style/Theme.Gallery.NoActionBar"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
 
         <activity
             android:name=".VideoPlayerActivity"
             android:exported="false"
-            android:theme="@style/Theme.Gallery"
+            android:theme="@style/Theme.Gallery.NoActionBar"
             android:configChanges="orientation|screenSize|screenLayout" />
 
         <activity

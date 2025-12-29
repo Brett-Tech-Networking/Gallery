@@ -2,7 +2,6 @@ package com.bretttech.gallery;
 
 import android.content.ContentValues;
 import android.graphics.Bitmap;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -14,17 +13,20 @@ import android.view.MenuItem;
 import android.view.PixelCopy;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageButton;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
-import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -43,9 +45,10 @@ public class VideoPlayerActivity extends AppCompatActivity {
     private boolean isVideoPrepared = false;
     private Handler hideHandler = new Handler(Looper.getMainLooper());
     private Handler updateHandler = new Handler(Looper.getMainLooper());
-    
+
     // Custom controls
     private View controlsOverlay;
+    private Toolbar topToolbar;
     private SeekBar videoSeekBar;
     private ImageButton btnPlayPause;
     private TextView tvCurrentTime;
@@ -57,19 +60,26 @@ public class VideoPlayerActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_video_player);
 
+        // Force black background to prevent transparency issues
+        getWindow().setBackgroundDrawableResource(android.R.color.black);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
         videoView = findViewById(R.id.video_view);
         fabScreenshot = findViewById(R.id.fab_screenshot);
         controlsOverlay = findViewById(R.id.controls_overlay);
+        topToolbar = findViewById(R.id.top_toolbar);
         videoSeekBar = findViewById(R.id.video_seekbar);
         btnPlayPause = findViewById(R.id.btn_play_pause);
         tvCurrentTime = findViewById(R.id.tv_current_time);
         tvTotalTime = findViewById(R.id.tv_total_time);
-        
-        ActionBar actionBar = getSupportActionBar();
 
-        // Force black background to prevent transparency issues
-        getWindow().setBackgroundDrawableResource(android.R.color.black);
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        setSupportActionBar(topToolbar);
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setTitle("Video Playback");
+            actionBar.setDisplayHomeAsUpEnabled(true);
+            actionBar.setDisplayShowTitleEnabled(false);
+        }
 
         Uri videoUri = getIntent().getParcelableExtra(EXTRA_VIDEO_URI);
 
@@ -97,16 +107,16 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 }
 
                 videoView.setLayoutParams(params);
-                
+
                 // Setup seekbar
                 int duration = videoView.getDuration();
                 videoSeekBar.setMax(duration);
                 tvTotalTime.setText(formatTime(duration));
-                
+
                 mp.start();
                 isPlaying = true;
                 btnPlayPause.setImageResource(android.R.drawable.ic_media_pause);
-                
+
                 // Start updating progress
                 startProgressUpdate();
             });
@@ -118,6 +128,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
 
             // Toggle UI on video click
             videoView.setOnClickListener(v -> toggleSystemUiVisibility());
+            controlsOverlay.setOnClickListener(v -> toggleSystemUiVisibility());
 
             // Play/Pause button
             btnPlayPause.setOnClickListener(v -> {
@@ -147,6 +158,7 @@ public class VideoPlayerActivity extends AppCompatActivity {
                 @Override
                 public void onStartTrackingTouch(SeekBar seekBar) {
                     stopProgressUpdate();
+                    hideHandler.removeCallbacksAndMessages(null); // Keep UI while seeking
                 }
 
                 @Override
@@ -154,19 +166,15 @@ public class VideoPlayerActivity extends AppCompatActivity {
                     if (isPlaying) {
                         startProgressUpdate();
                     }
+                    hideHandler.postDelayed(() -> updateSystemUiVisibility(true), 3000);
                 }
             });
 
             fabScreenshot.setOnClickListener(v -> takeScreenshot());
 
-            if (actionBar != null) {
-                actionBar.setTitle("Video Playback");
-                actionBar.setDisplayHomeAsUpEnabled(true);
-            }
-
             // Initially show UI
             updateSystemUiVisibility(false);
-            
+
             // Auto-hide after a delay
             hideHandler.postDelayed(() -> updateSystemUiVisibility(true), 3000);
 
@@ -176,7 +184,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
         }
 
         // UPDATED: Apply Animation for Activity entry
-        applyActivityTransition(false);
+        postponeEnterTransition();
+        videoView.post(this::startPostponedEnterTransition);
     }
 
     private void startProgressUpdate() {
@@ -214,7 +223,8 @@ public class VideoPlayerActivity extends AppCompatActivity {
                     if (copyResult == PixelCopy.SUCCESS) {
                         saveBitmapToGallery(bitmap);
                     } else {
-                        runOnUiThread(() -> Toast.makeText(this, "Screenshot failed to capture.", Toast.LENGTH_SHORT).show());
+                        runOnUiThread(
+                                () -> Toast.makeText(this, "Screenshot failed to capture.", Toast.LENGTH_SHORT).show());
                     }
                 }, new Handler(Looper.getMainLooper()));
             } catch (IllegalArgumentException e) {
@@ -245,90 +255,101 @@ public class VideoPlayerActivity extends AppCompatActivity {
     @Override
     public void finish() {
         super.finish();
-        applyActivityTransition(true);
-    }
-
-    private void applyActivityTransition(boolean isExiting) {
-        String animationType = SettingsActivity.getAnimationType(this);
-        int enterAnim = 0;
-        int exitAnim = 0;
-
-        if (animationType.equals(SettingsActivity.ANIMATION_SLIDE)) {
-            if (isExiting) {
-                enterAnim = R.anim.slide_in_left;
-                exitAnim = R.anim.slide_out_right;
-            } else {
-                enterAnim = R.anim.slide_in_right;
-                exitAnim = R.anim.slide_out_left;
-            }
-        } else if (animationType.equals(SettingsActivity.ANIMATION_FLY)) {
-            if (isExiting) {
-                enterAnim = R.anim.fly_in_down;
-                exitAnim = R.anim.fly_out_up;
-            } else {
-                enterAnim = R.anim.fly_in_up;
-                exitAnim = R.anim.fly_out_down;
-            }
-        } else if (animationType.equals(SettingsActivity.ANIMATION_FADE)) {
-            enterAnim = R.anim.fade_in;
-            exitAnim = R.anim.fade_out;
-        }
-
-        if (enterAnim != 0 || exitAnim != 0) {
-            overridePendingTransition(enterAnim, exitAnim);
-        }
     }
 
     private void toggleSystemUiVisibility() {
-        updateSystemUiVisibility(!isUIHidden);
+        isUIHidden = !isUIHidden;
+        updateSystemUiVisibility(isUIHidden);
     }
 
     private void updateSystemUiVisibility(boolean hide) {
-        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-        ActionBar actionBar = getSupportActionBar();
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(),
+                getWindow().getDecorView());
 
-        if (controller == null) return;
+        if (controller != null) {
+            if (hide) {
+                controller.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                controller.hide(WindowInsetsCompat.Type.systemBars());
+            } else {
+                controller.show(WindowInsetsCompat.Type.systemBars());
+            }
+        }
 
         // Always clear pending hide actions when state changes
         hideHandler.removeCallbacksAndMessages(null);
 
-        if (hide) {
-            // Fade out controls smoothly
-            controlsOverlay.animate()
-                .alpha(0f)
-                .setDuration(300)
-                .withEndAction(() -> {
-                    controlsOverlay.setVisibility(View.GONE);
-                    
-                    controller.hide(WindowInsetsCompat.Type.systemBars());
-                    controller.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        float targetAlpha = hide ? 0f : 1f;
+        long duration = 300;
 
-                    if (actionBar != null) {
-                        actionBar.hide();
-                    }
+        controlsOverlay.animate()
+                .alpha(targetAlpha)
+                .setDuration(duration)
+                .setInterpolator(hide ? new AccelerateInterpolator() : new DecelerateInterpolator())
+                .withEndAction(() -> {
+                    // If hidden, we can optionally set visibility to GONE *if* we are sure it won't
+                    // jump.
+                    // But generally, alpha 0 with clickable=false is safer for "no jump".
+                    // However, the original code had setVisibility(GONE) in endAction.
+                    // Let's keep it visible but alpha 0 to avoid layout re-calculation risk,
+                    // OR ensure ConstraintLayout doesn't collapse.
+                    // Since controls_overlay matches parent, it won't collapse.
+                    // BUT, if we set GONE, child views are gone.
+                    // Let's stick to Alpha + clickability toggle for maximum safety against jumps.
+                    // Actually, let's TRY to set GONE because otherwise touches might be blocked?
+                    // No, we handle setClickable.
                 })
                 .start();
-            
-            isUIHidden = true;
+
+        // Toggle clickability
+        setControlsClickable(!hide);
+        controlsOverlay.setClickable(!hide); // Overlay itself? No, we need clicks to pass through to
+                                             // VideoView/Container
+        // We set controlsOverlay background to transparent, so clicks pass through if
+        // not clickable?
+        // Wait, controlsOverlay has children.
+        // We want clicks on the empty space of controlsOverlay to TOGGLE UI (which we
+        // set up with onClickListener).
+        // If we hide UI, we want taps on videoView to show it.
+        // If UI is hidden (alpha 0), controlsOverlay is still there. If it consumes
+        // clicks, videoView won't get them.
+        // So when hidden, controlsOverlay should NOT be clickable.
+
+        if (hide) {
+            controlsOverlay.setClickable(false);
+            // And we rely on videoView.setOnClickListener to show it again.
+            // videoView is BEHIND controlsOverlay?
+            // If controlsOverlay is match_parent, it covers videoView.
+            // If controlsOverlay is not clickable, clicks pass to videoView.
+            // VideoView has click listener to toggle.
         } else {
-            // Fade in controls smoothly
-            controlsOverlay.setVisibility(View.VISIBLE);
-            controlsOverlay.setAlpha(0f);
-            controlsOverlay.animate()
-                .alpha(1f)
-                .setDuration(300)
-                .start();
-            
-            controller.show(WindowInsetsCompat.Type.systemBars());
+            // If shown, taps on empty space should probably toggle/hide?
+            controlsOverlay.setClickable(true);
+        }
 
-            if (actionBar != null) {
-                actionBar.show();
-            }
-            
-            isUIHidden = false;
-
+        if (!hide) {
             // Auto-hide after 3 seconds
             hideHandler.postDelayed(() -> updateSystemUiVisibility(true), 3000);
+        }
+    }
+
+    private void setControlsClickable(boolean clickable) {
+        fabScreenshot.setClickable(clickable);
+        videoSeekBar.setClickable(clickable);
+        btnPlayPause.setClickable(clickable);
+        topToolbar.setClickable(clickable);
+        // Disable children of bottom container
+        View bottomContainer = findViewById(R.id.bottom_controls_container);
+        if (bottomContainer != null) {
+            // bottomContainer.setClickable(clickable); // This might block clicks?
+            // Loop children?
+            // Actually, if the parent overlay is not clickable, and children are, they
+            // still work?
+            // Yes. But we are animating parent alpha.
+            // If parent alpha is 0, children are invisible.
+            // We should disable them to be safe.
+            fabScreenshot.setEnabled(clickable);
+            videoSeekBar.setEnabled(clickable);
+            btnPlayPause.setEnabled(clickable);
         }
     }
 

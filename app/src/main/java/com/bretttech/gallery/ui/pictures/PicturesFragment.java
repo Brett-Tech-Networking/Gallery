@@ -54,8 +54,8 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
     private FavoritesManager favoritesManager;
     private SharedViewModel sharedViewModel; // Added for communication
 
-    private final ActivityResultLauncher<String[]> requestPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+    private final ActivityResultLauncher<String[]> requestPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 boolean allGranted = true;
                 for (Boolean granted : result.values()) {
                     if (!granted) {
@@ -66,12 +66,13 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
                 if (allGranted) {
                     picturesViewModel.loadImages();
                 } else {
-                    Toast.makeText(getContext(), "Permission denied to read your External storage", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Permission denied to read your External storage", Toast.LENGTH_SHORT)
+                            .show();
                 }
             });
 
-    private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
+    private final ActivityResultLauncher<IntentSenderRequest> trashResultLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartIntentSenderForResult(), result -> {
                 if (result.getResultCode() == AppCompatActivity.RESULT_OK) {
                     Toast.makeText(getContext(), "Item(s) moved to trash", Toast.LENGTH_SHORT).show();
                 } else {
@@ -86,24 +87,26 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
         setHasOptionsMenu(true);
         albumsViewModel = new ViewModelProvider(requireActivity()).get(AlbumsViewModel.class);
         favoritesManager = new FavoritesManager(requireContext());
-        sharedViewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class); // Initialize SharedViewModel
+        sharedViewModel = new ViewModelProvider(requireActivity()).get(SharedViewModel.class); // Initialize
+                                                                                               // SharedViewModel
 
-        getParentFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this, (requestKey, bundle) -> {
-            boolean success = bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS);
-            if (success) {
-                if (getParentFragmentManager() != null) {
-                    getParentFragmentManager().beginTransaction().detach(this).attach(this).commit();
-                }
-                if (albumsViewModel != null) {
-                    albumsViewModel.loadAlbums();
-                }
-            }
-        });
+        getParentFragmentManager().setFragmentResultListener(MoveToAlbumDialogFragment.REQUEST_KEY, this,
+                (requestKey, bundle) -> {
+                    boolean success = bundle.getBoolean(MoveToAlbumDialogFragment.KEY_MOVE_SUCCESS);
+                    if (success) {
+                        if (getParentFragmentManager() != null) {
+                            getParentFragmentManager().beginTransaction().detach(this).attach(this).commit();
+                        }
+                        if (albumsViewModel != null) {
+                            albumsViewModel.loadAlbums();
+                        }
+                    }
+                });
     }
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
-                             ViewGroup container, Bundle savedInstanceState) {
+            ViewGroup container, Bundle savedInstanceState) {
         picturesViewModel = new ViewModelProvider(this).get(PicturesViewModel.class);
         binding = FragmentPicturesBinding.inflate(inflater, container, false);
 
@@ -180,11 +183,7 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
                     if (actionMode != null) {
                         toggleSelection(image);
                     } else {
-                        if (image.isVideo()) {
-                            Intent intent = new Intent(getContext(), VideoPlayerActivity.class);
-                            intent.putExtra(VideoPlayerActivity.EXTRA_VIDEO_URI, image.getUri());
-                            startActivity(intent);
-                        } else if (images != null && !images.isEmpty()) {
+                        if (images != null && !images.isEmpty()) {
                             ImageDataHolder.getInstance().setImageList(images);
                             Intent intent = new Intent(getContext(), PhotoViewActivity.class);
                             intent.putExtra(PhotoViewActivity.EXTRA_IMAGE_POSITION, images.indexOf(image));
@@ -192,8 +191,7 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
                         }
                     }
                 },
-                this::toggleSelection
-        );
+                this::toggleSelection);
         binding.recyclerViewPictures.setLayoutManager(new GridLayoutManager(getContext(), 3));
         binding.recyclerViewPictures.setAdapter(picturesAdapter);
     }
@@ -231,7 +229,8 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
         List<Image> selectedImages = picturesAdapter.getSelectedImages();
         List<Uri> uris = selectedImages.stream().map(Image::getUri).collect(Collectors.toList());
 
-        if (uris.isEmpty()) return true;
+        if (uris.isEmpty())
+            return true;
 
         int itemId = item.getItemId();
         if (itemId == R.id.action_share) {
@@ -239,11 +238,13 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
             mode.finish();
             return true;
         } else if (itemId == R.id.action_move_to_album) {
-            MoveToAlbumDialogFragment.newInstance(uris, false).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            MoveToAlbumDialogFragment.newInstance(uris, false).show(getParentFragmentManager(),
+                    MoveToAlbumDialogFragment.TAG);
             mode.finish();
             return true;
         } else if (itemId == R.id.action_move_to_secure_folder) {
-            MoveToAlbumDialogFragment.newInstance(uris, true).show(getParentFragmentManager(), MoveToAlbumDialogFragment.TAG);
+            MoveToAlbumDialogFragment.newInstance(uris, true).show(getParentFragmentManager(),
+                    MoveToAlbumDialogFragment.TAG);
             mode.finish();
             return true;
         } else if (itemId == R.id.action_delete) {
@@ -272,7 +273,8 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
         ContentResolver contentResolver = requireContext().getContentResolver();
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                IntentSender intentSender = MediaStore.createTrashRequest(contentResolver, uris, true).getIntentSender();
+                IntentSender intentSender = MediaStore.createTrashRequest(contentResolver, uris, true)
+                        .getIntentSender();
                 trashResultLauncher.launch(new IntentSenderRequest.Builder(intentSender).build());
             } else {
                 if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
@@ -280,7 +282,8 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
                         try {
                             contentResolver.delete(uri, null, null);
                         } catch (RecoverableSecurityException e) {
-                            IntentSenderRequest request = new IntentSenderRequest.Builder(e.getUserAction().getActionIntent().getIntentSender()).build();
+                            IntentSenderRequest request = new IntentSenderRequest.Builder(
+                                    e.getUserAction().getActionIntent().getIntentSender()).build();
                             trashResultLauncher.launch(request);
                             return;
                         }
@@ -289,7 +292,8 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
                     for (Uri uri : uris) {
                         contentResolver.delete(uri, null, null);
                     }
-                    Toast.makeText(getContext(), uris.size() + " item(s) permanently deleted", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), uris.size() + " item(s) permanently deleted", Toast.LENGTH_SHORT)
+                            .show();
                 }
                 picturesViewModel.loadImages();
             }
@@ -314,9 +318,11 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
 
     private void requestStoragePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            String[] permissions = {Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO};
-            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED) {
+            String[] permissions = { Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO };
+            if (ContextCompat.checkSelfPermission(requireContext(),
+                    Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(requireContext(),
+                            Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED) {
                 picturesViewModel.loadImages();
             } else {
                 requestPermissionLauncher.launch(permissions);
@@ -326,7 +332,7 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
             if (ContextCompat.checkSelfPermission(requireContext(), permission) == PackageManager.PERMISSION_GRANTED) {
                 picturesViewModel.loadImages();
             } else {
-                requestPermissionLauncher.launch(new String[]{permission});
+                requestPermissionLauncher.launch(new String[] { permission });
             }
         }
     }

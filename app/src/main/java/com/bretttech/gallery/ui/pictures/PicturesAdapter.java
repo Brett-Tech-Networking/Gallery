@@ -46,11 +46,12 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
 
         Glide.with(holder.imageView.getContext())
                 .load(uri)
-                .diskCacheStrategy(DiskCacheStrategy.NONE)
-                .skipMemoryCache(true)
-                .signature(new ObjectKey(String.valueOf(System.currentTimeMillis())))
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .frame(1000000) // Load frame at 1 second
                 .centerCrop()
                 .into(holder.imageView);
+
+        holder.imageView.setTransitionName(uri.toString());
 
         holder.videoIndicator.setVisibility(image.isVideo() ? View.VISIBLE : View.GONE);
         holder.selectionOverlay.setVisibility(selectedImages.contains(image) ? View.VISIBLE : View.GONE);
@@ -102,7 +103,6 @@ public class PicturesAdapter extends RecyclerView.Adapter<PicturesAdapter.Pictur
             notifyDataSetChanged();
         }
     }
-
 
     public void toggleSelection(Image image) {
         if (selectedImages.contains(image)) {
