@@ -1,0 +1,92 @@
+<resources>
+    <string name="app_name">المعرض</string>
+    <string name="title_pictures">الصور</string>
+    <string name="title_albums">الألبومات</string>
+    <string name="title_menu">القائمة</string>
+    <string name="title_trash">سلة المهملات</string>
+    <string name="action_restore">استعادة</string>
+    <string name="action_delete_forever">حذف نهائي</string>
+    <string name="video_indicator_desc">مؤشر الفيديو</string>
+
+    <string name="action_sort">ترتيب</string>
+    <string name="sort_name_asc">الاسم (أ-ي)</string>
+    <string name="sort_name_desc">الاسم (ي-أ)</string>
+    <string name="sort_date_desc">الأحدث</string>
+    <string name="sort_date_asc">الأقدم</string>
+    <string name="sort_count_desc">الأكثر صوراً</string>
+    <string name="sort_count_asc">الأقل صوراً</string>
+
+    <string name="action_move">نقل</string>
+    <string name="action_wallpaper">تعيين كخلفية</string>
+    <string name="wallpaper_error">لا يمكن استخدام الفيديو كخلفية.</string>
+    <string name="delete_success">تم نقل %d عنصر إلى سلة المهملات</string>
+    <string name="delete_fail">فشل نقل العناصر إلى سلة المهملات</string>
+    <string name="title_secure_folder">المجلد الآمن</string>
+    <string name="move_to_secure_folder">نقل للمجلد الآمن</string>
+    <string name="title_hide_albums">إخفاء الألبومات</string>
+
+    <string name="status_hidden">مخفي</string>
+    <string name="status_visible">مرئي</string>
+
+    <string name="setup_pin_title">إعداد رمز PIN</string>
+    <string name="enter_new_pin">أدخل رمز PIN جديد من 4 أرقام</string>
+    <string name="confirm_pin">تأكيد رمز PIN</string>
+    <string name="pins_do_not_match">الرموز غير متطابقة. حاول مرة أخرى.</string>
+    <string name="pin_set_successfully">تم تعيين الرمز بنجاح.</string>
+    <string name="enter_pin_title">إدخال رمز PIN</string>
+    <string name="enter_your_pin">أدخل رمز PIN المكون من 4 أرقام</string>
+    <string name="wrong_pin">رمز خاطئ. حاول مرة أخرى.</string>
+
+    <string name="action_settings">الإعدادات</string>
+    <string name="title_secure_settings">إعدادات المجلد الآمن</string>
+    <string name="setting_change_pin">تغيير رمز PIN</string>
+    <string name="setting_biometrics_toggle">تفعيل المصادقة البيومترية</string>
+    <string name="setting_biometrics_subtitle">استخدم البصمة أو الوجه للدخول.</string>
+
+    <string name="settings">الإعدادات</string>
+    <string name="theme">المظهر</string>
+    <string name="light_mode">فاتح</string>
+    <string name="dark_mode">داكن</string>
+    <string name="follow_system">حسب النظام</string>
+    <string name="change_app_icon">تغيير أيقونة التطبيق</string>
+    <string name="default_icon">الافتراضي</string>
+    <string name="icon_variant_1">شكل 1</string>
+    <string name="icon_variant_2">شكل 2</string>
+    <string name="icon_change_toast">سيتم تحديث الأيقونة قريباً.</string>
+    <string name="title_settings">الإعدادات</string>
+
+    <string name="title_favorites">المفضلة</string>
+    <string name="settings_animation">تأثيرات التنقل</string>
+    <string name="setting_animation_off">إيقاف (الافتراضي)</string>
+    <string name="setting_animation_slide">انزلاق</string>
+    <string name="setting_animation_fly">طيران</string>
+    <string name="setting_animation_fade">تلاشي</string>
+
+    <string name="dialog_wallpaper_title">معاينة الخلفية</string>
+    <string name="dialog_wallpaper_message">هل تريد تعيين هذه الصورة كخلفية للجهاز؟</string>
+    <string name="dialog_confirm_set">تعيين</string>
+    <string name="dialog_cancel">إلغاء</string>
+
+    <string name="wallpaper_scale_fill">ملء / قص</string>
+    <string name="wallpaper_scale_fit">احتواء</string>
+    <string name="wallpaper_scale_stretch">تتمدد</string>
+
+    <string name="bottom_nav_color">لون شريط التنقل السفلي</string>
+    <string name="pick_color">اختر لوناً</string>
+    <string name="show_album_borders">إظهار حدود الألبوم</string>
+    <string name="album_border_color">لون الحدود</string>
+    <string name="album_border_width">سمك الحدود</string>
+    <string name="pick_border_color">اختر لون الحدود</string>
+    <string name="width_dp">%1$sdp</string>
+
+    <string name="language">اللغة</string>
+    <string name="language_default">الافتراضي (النظام)</string>
+    <string name="language_en">English</string>
+    <string name="language_es">Español</string>
+    <string name="language_ar">العربية</string>
+
+    <string name="folder_camera">الكاميرا</string>
+    <string name="folder_movies">الأفلام</string>
+    <string name="folder_download">تنزيلات</string>
+    <string name="folder_screenshots">لقطات الشاشة</string>
+</resources>

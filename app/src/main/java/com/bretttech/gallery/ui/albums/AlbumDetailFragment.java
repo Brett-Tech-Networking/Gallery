@@ -40,7 +40,9 @@ import com.bretttech.gallery.databinding.FragmentAlbumDetailBinding;
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
 import com.bretttech.gallery.ui.pictures.PicturesAdapter;
+import com.bretttech.gallery.ui.pictures.PicturesAdapter;
 import com.bretttech.gallery.SharedViewModel;
+import com.bretttech.gallery.utils.LocalizationUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -135,7 +137,8 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
             if (((AppCompatActivity) getActivity()) != null
                     && ((AppCompatActivity) getActivity()).getSupportActionBar() != null) {
                 String albumName = new File(albumFolderPath).getName();
-                ((AppCompatActivity) getActivity()).getSupportActionBar().setTitle(albumName);
+                ((AppCompatActivity) getActivity()).getSupportActionBar().setTitle(
+                        LocalizationUtils.getLocalizedAlbumName(getContext(), albumName));
             }
         }
 

@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.SettingsActivity;
+import com.bretttech.gallery.utils.LocalizationUtils;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.signature.ObjectKey;
@@ -107,7 +108,7 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
         }
 
         public void bind(final Album album, final OnAlbumClickListener listener, boolean isSelected, int spanCount) {
-            albumName.setText(album.getName());
+            albumName.setText(LocalizationUtils.getLocalizedAlbumName(itemView.getContext(), album.getName()));
             albumImageCount.setText(album.getImageCount() + " Items");
 
             if (spanCount == 3) {

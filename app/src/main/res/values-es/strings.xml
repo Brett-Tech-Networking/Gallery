@@ -1,0 +1,92 @@
+<resources>
+    <string name="app_name">Galería</string>
+    <string name="title_pictures">Fotos</string>
+    <string name="title_albums">Álbumes</string>
+    <string name="title_menu">Menú</string>
+    <string name="title_trash">Papelera</string>
+    <string name="action_restore">Restaurar</string>
+    <string name="action_delete_forever">Eliminar definitivamente</string>
+    <string name="video_indicator_desc">Indicador de video</string>
+
+    <string name="action_sort">Ordenar</string>
+    <string name="sort_name_asc">Nombre (A-Z)</string>
+    <string name="sort_name_desc">Nombre (Z-A)</string>
+    <string name="sort_date_desc">Más recientes</string>
+    <string name="sort_date_asc">Más antiguos</string>
+    <string name="sort_count_desc">Más fotos</string>
+    <string name="sort_count_asc">Menos fotos</string>
+
+    <string name="action_move">Mover</string>
+    <string name="action_wallpaper">Establecer fondo</string>
+    <string name="wallpaper_error">No se puede usar video como fondo.</string>
+    <string name="delete_success">Se movieron %d ítems a la papelera</string>
+    <string name="delete_fail">Error al mover a la papelera</string>
+    <string name="title_secure_folder">Carpeta Segura</string>
+    <string name="move_to_secure_folder">Mover a Carpeta Segura</string>
+    <string name="title_hide_albums">Ocultar Álbumes</string>
+
+    <string name="status_hidden">Oculto</string>
+    <string name="status_visible">Visible</string>
+
+    <string name="setup_pin_title">Configurar PIN</string>
+    <string name="enter_new_pin">Ingrese un nuevo PIN de 4 dígitos</string>
+    <string name="confirm_pin">Confirme su PIN</string>
+    <string name="pins_do_not_match">Los PIN no coinciden. Intente de nuevo.</string>
+    <string name="pin_set_successfully">PIN configurado exitosamente.</string>
+    <string name="enter_pin_title">Ingrese PIN</string>
+    <string name="enter_your_pin">Ingrese su PIN de 4 dígitos</string>
+    <string name="wrong_pin">PIN incorrecto. Intente de nuevo.</string>
+
+    <string name="action_settings">Ajustes</string>
+    <string name="title_secure_settings">Ajustes de Carpeta Segura</string>
+    <string name="setting_change_pin">Cambiar PIN</string>
+    <string name="setting_biometrics_toggle">Habilitar autenticación biométrica</string>
+    <string name="setting_biometrics_subtitle">Use huella o rostro para acceder.</string>
+
+    <string name="settings">Ajustes</string>
+    <string name="theme">Tema</string>
+    <string name="light_mode">Modo Claro</string>
+    <string name="dark_mode">Modo Oscuro</string>
+    <string name="follow_system">Seguir sistema</string>
+    <string name="change_app_icon">Cambiar icono de app</string>
+    <string name="default_icon">Icono Predeterminado</string>
+    <string name="icon_variant_1">Variante 1</string>
+    <string name="icon_variant_2">Variante 2</string>
+    <string name="icon_change_toast">El icono se actualizará en breve.</string>
+    <string name="title_settings">Ajustes</string>
+
+    <string name="title_favorites">Favoritos</string>
+    <string name="settings_animation">Animaciones de navegación</string>
+    <string name="setting_animation_off">Apagado (Predeterminado)</string>
+    <string name="setting_animation_slide">Deslizar</string>
+    <string name="setting_animation_fly">Volar</string>
+    <string name="setting_animation_fade">Desvanecer</string>
+
+    <string name="dialog_wallpaper_title">Vista previa de fondo</string>
+    <string name="dialog_wallpaper_message">¿Desea establecer esta imagen como fondo de pantalla?</string>
+    <string name="dialog_confirm_set">Establecer</string>
+    <string name="dialog_cancel">Cancelar</string>
+
+    <string name="wallpaper_scale_fill">Rellenar / Cortar</string>
+    <string name="wallpaper_scale_fit">Ajustar</string>
+    <string name="wallpaper_scale_stretch">Estirar</string>
+
+    <string name="bottom_nav_color">Color de navegación inferior</string>
+    <string name="pick_color">Elegir color</string>
+    <string name="show_album_borders">Mostrar bordes de álbum</string>
+    <string name="album_border_color">Color del borde</string>
+    <string name="album_border_width">Ancho del borde</string>
+    <string name="pick_border_color">Elegir color del borde</string>
+    <string name="width_dp">%1$sdp</string>
+
+    <string name="language">Idioma</string>
+    <string name="language_default">Predeterminado (Sistema)</string>
+    <string name="language_en">English</string>
+    <string name="language_es">Español</string>
+    <string name="language_ar">العربية</string>
+
+    <string name="folder_camera">Cámara</string>
+    <string name="folder_movies">Películas</string>
+    <string name="folder_download">Descargas</string>
+    <string name="folder_screenshots">Capturas</string>
+</resources>

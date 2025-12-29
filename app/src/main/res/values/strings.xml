@@ -78,4 +78,15 @@
     <string name="album_border_width">Album border width</string>
     <string name="pick_border_color">Pick border color</string>
     <string name="width_dp">%1$sdp</string>
+
+    <string name="language">Language</string>
+    <string name="language_default">Default (System)</string>
+    <string name="language_en">English</string>
+    <string name="language_es">Español</string>
+    <string name="language_ar">العربية</string>
+
+    <string name="folder_camera">Camera</string>
+    <string name="folder_movies">Movies</string>
+    <string name="folder_download">Downloads</string>
+    <string name="folder_screenshots">Screenshots</string>
 </resources>

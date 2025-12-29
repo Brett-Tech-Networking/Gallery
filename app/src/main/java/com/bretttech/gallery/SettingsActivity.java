@@ -22,6 +22,9 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.os.LocaleListCompat;
+
+import java.util.Locale;
 
 import com.github.dhaval2404.colorpicker.ColorPickerDialog;
 import com.github.dhaval2404.colorpicker.listener.ColorListener;
@@ -58,6 +61,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
+        setupLanguageSelector();
         setupThemeSelector();
         setupIconSelector();
         setupAnimationSelector();
@@ -142,6 +146,40 @@ public class SettingsActivity extends AppCompatActivity {
         return prefs.getInt(KEY_ALBUM_BORDER_WIDTH_DP, 1);
     }
 
+    private void setupLanguageSelector() {
+        RadioGroup languageGroup = findViewById(R.id.language_radio_group);
+
+        LocaleListCompat currentLocales = AppCompatDelegate.getApplicationLocales();
+        String currentLangTag = "";
+        if (!currentLocales.isEmpty()) {
+            currentLangTag = currentLocales.get(0).toLanguageTag();
+        }
+
+        if (currentLangTag.startsWith("es")) {
+            languageGroup.check(R.id.radio_language_es);
+        } else if (currentLangTag.startsWith("ar")) {
+            languageGroup.check(R.id.radio_language_ar);
+        } else if (currentLangTag.startsWith("en")) {
+            languageGroup.check(R.id.radio_language_en);
+        } else {
+            languageGroup.check(R.id.radio_language_default);
+        }
+
+        languageGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            LocaleListCompat locales;
+            if (checkedId == R.id.radio_language_es) {
+                locales = LocaleListCompat.forLanguageTags("es");
+            } else if (checkedId == R.id.radio_language_ar) {
+                locales = LocaleListCompat.forLanguageTags("ar");
+            } else if (checkedId == R.id.radio_language_en) {
+                locales = LocaleListCompat.forLanguageTags("en");
+            } else {
+                locales = LocaleListCompat.getEmptyLocaleList();
+            }
+            AppCompatDelegate.setApplicationLocales(locales);
+        });
+    }
+
     private void setupThemeSelector() {
         RadioGroup themeGroup = findViewById(R.id.theme_radio_group);
         int currentTheme = prefs.getInt(KEY_THEME, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
@@ -214,8 +252,8 @@ public class SettingsActivity extends AppCompatActivity {
         SwitchCompat switchCompat = findViewById(R.id.switch_album_borders);
         boolean enabled = prefs.getBoolean(KEY_ALBUM_BORDERS, false);
         switchCompat.setChecked(enabled);
-        switchCompat.setOnCheckedChangeListener((buttonView, isChecked) ->
-                prefs.edit().putBoolean(KEY_ALBUM_BORDERS, isChecked).apply());
+        switchCompat.setOnCheckedChangeListener(
+                (buttonView, isChecked) -> prefs.edit().putBoolean(KEY_ALBUM_BORDERS, isChecked).apply());
     }
 
     private void setupAlbumBorderColorPicker() {
@@ -246,7 +284,8 @@ public class SettingsActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
@@ -267,20 +306,17 @@ public class SettingsActivity extends AppCompatActivity {
         pm.setComponentEnabledSetting(
                 new ComponentName(packageName, packageName + ".MainActivityLauncher" + currentAliasSuffix),
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP
-        );
+                PackageManager.DONT_KILL_APP);
 
         pm.setComponentEnabledSetting(
                 new ComponentName(packageName, packageName + ".MainActivityLauncher" + newAliasSuffix),
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP
-        );
+                PackageManager.DONT_KILL_APP);
 
         prefs.edit().putString(KEY_ICON, newAliasSuffix).apply();
 
         Toast.makeText(this, R.string.icon_change_toast, Toast.LENGTH_SHORT).show();
     }
-
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
