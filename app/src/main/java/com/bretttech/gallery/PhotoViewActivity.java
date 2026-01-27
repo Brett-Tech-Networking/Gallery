@@ -29,6 +29,8 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.graphics.Insets;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.viewpager2.widget.ViewPager2;
 
@@ -92,6 +94,21 @@ public class PhotoViewActivity extends AppCompatActivity implements PhotoPagerAd
             actionBar.setDisplayHomeAsUpEnabled(true);
             actionBar.setDisplayShowTitleEnabled(false);
         }
+
+        // Apply window insets to top toolbar
+        ViewCompat.setOnApplyWindowInsetsListener(topToolbar, (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(v.getPaddingLeft(), insets.top, v.getPaddingRight(), v.getPaddingBottom());
+            return WindowInsetsCompat.CONSUMED;
+        });
+
+        // Apply window insets to bottom action bar
+        int initialBottomBarPadding = bottomActionBar.getPaddingBottom();
+        ViewCompat.setOnApplyWindowInsetsListener(bottomActionBar, (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(), insets.bottom + initialBottomBarPadding);
+            return WindowInsetsCompat.CONSUMED;
+        });
 
         images = ImageDataHolder.getInstance().getImageList();
         int currentPosition = getIntent().getIntExtra(EXTRA_IMAGE_POSITION, 0);

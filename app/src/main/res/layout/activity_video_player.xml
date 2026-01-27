@@ -25,7 +25,8 @@
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/top_toolbar"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
+            android:layout_height="wrap_content"
+            android:minHeight="?attr/actionBarSize"
             android:background="#80000000"
             android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
             app:layout_constraintTop_toTopOf="parent"
@@ -38,7 +39,7 @@
             android:id="@+id/fab_screenshot"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
             android:layout_marginBottom="24dp"
             android:contentDescription="Take Screenshot"
             android:src="@android:drawable/ic_menu_camera"
@@ -47,7 +48,7 @@
             app:borderWidth="0dp"
             app:elevation="2dp"
             app:layout_constraintBottom_toTopOf="@id/bottom_controls_container"
-            app:layout_constraintStart_toStartOf="parent" />
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <!-- Bottom Controls Container -->
         <LinearLayout
@@ -55,7 +56,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#80000000"
+            android:background="@drawable/gradient_bottom_overlay"
             android:padding="8dp"
             app:layout_constraintBottom_toBottomOf="parent">
 
@@ -64,7 +65,9 @@
                 android:id="@+id/video_seekbar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="4dp"
+                android:progressTint="@android:color/white"
+                android:thumbTint="@android:color/white" />
 
             <!-- Playback Controls -->
             <LinearLayout

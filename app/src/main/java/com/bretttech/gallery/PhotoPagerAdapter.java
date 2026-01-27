@@ -93,24 +93,9 @@ public class PhotoPagerAdapter extends RecyclerView.Adapter<PhotoPagerAdapter.Ph
         if (image.isVideo()) {
             holder.iconPlay.setVisibility(View.VISIBLE);
             holder.iconPlay.setOnClickListener(v -> {
-                holder.photoView.setVisibility(View.GONE);
-                holder.iconPlay.setVisibility(View.GONE);
-                holder.videoView.setVisibility(View.VISIBLE);
-                holder.videoView.setVideoURI(imageUri);
-                holder.videoView.start();
-            });
-
-            // Allow toggling controls when tapping video view too
-            holder.videoView.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onPhotoTapped(imageUri);
-                }
-            });
-
-            holder.videoView.setOnCompletionListener(mp -> {
-                holder.videoView.setVisibility(View.GONE);
-                holder.photoView.setVisibility(View.VISIBLE);
-                holder.iconPlay.setVisibility(View.VISIBLE);
+                android.content.Intent intent = new android.content.Intent(context, VideoPlayerActivity.class);
+                intent.putExtra(VideoPlayerActivity.EXTRA_VIDEO_URI, imageUri);
+                context.startActivity(intent);
             });
         }
     }
@@ -123,22 +108,11 @@ public class PhotoPagerAdapter extends RecyclerView.Adapter<PhotoPagerAdapter.Ph
     @Override
     public void onViewRecycled(@NonNull PhotoViewHolder holder) {
         super.onViewRecycled(holder);
-        stopPlayback(holder);
     }
 
     @Override
     public void onViewDetachedFromWindow(@NonNull PhotoViewHolder holder) {
         super.onViewDetachedFromWindow(holder);
-        stopPlayback(holder);
-    }
-
-    private void stopPlayback(PhotoViewHolder holder) {
-        if (holder.videoView.isPlaying()) {
-            holder.videoView.stopPlayback();
-        }
-        holder.videoView.setVisibility(View.GONE);
-        holder.photoView.setVisibility(View.VISIBLE);
-        holder.iconPlay.setVisibility(View.VISIBLE);
     }
 
     static class PhotoViewHolder extends RecyclerView.ViewHolder {

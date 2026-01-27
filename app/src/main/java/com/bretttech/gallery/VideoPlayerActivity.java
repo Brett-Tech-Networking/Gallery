@@ -30,6 +30,8 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.graphics.Insets;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -81,6 +83,22 @@ public class VideoPlayerActivity extends AppCompatActivity {
             actionBar.setDisplayShowTitleEnabled(false);
         }
 
+        // Apply window insets to top toolbar
+        ViewCompat.setOnApplyWindowInsetsListener(topToolbar, (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(v.getPaddingLeft(), insets.top, v.getPaddingRight(), v.getPaddingBottom());
+            return WindowInsetsCompat.CONSUMED;
+        });
+
+        // Apply window insets to bottom controls container
+        View bottomControlsContainer = findViewById(R.id.bottom_controls_container);
+        int initialBottomPadding = bottomControlsContainer.getPaddingBottom();
+        ViewCompat.setOnApplyWindowInsetsListener(bottomControlsContainer, (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(), insets.bottom + initialBottomPadding);
+            return WindowInsetsCompat.CONSUMED;
+        });
+
         Uri videoUri = getIntent().getParcelableExtra(EXTRA_VIDEO_URI);
 
         if (videoUri != null) {
@@ -124,6 +142,13 @@ public class VideoPlayerActivity extends AppCompatActivity {
             videoView.setOnErrorListener((mp, what, extra) -> {
                 Toast.makeText(this, "Error playing video.", Toast.LENGTH_LONG).show();
                 return true;
+            });
+
+            videoView.setOnCompletionListener(mp -> {
+                isPlaying = false;
+                btnPlayPause.setImageResource(android.R.drawable.ic_media_play);
+                stopProgressUpdate();
+                updateSystemUiVisibility(false); // Show UI
             });
 
             // Toggle UI on video click
