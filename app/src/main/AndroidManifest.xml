@@ -144,6 +144,11 @@
             android:label="settings"
             android:theme="@style/Theme.Gallery" />
 
+        <activity
+            android:name=".PrivacyPolicyActivity"
+            android:exported="false"
+            android:label="Privacy Policy"
+            android:theme="@style/Theme.Gallery" />
 
     </application>
 

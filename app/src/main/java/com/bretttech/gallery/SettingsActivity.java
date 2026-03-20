@@ -75,10 +75,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void setupPrivacyPolicy() {
         Button privacyPolicyButton = findViewById(R.id.privacy_policy_button);
         privacyPolicyButton.setOnClickListener(v -> {
-            String url = "https://www.google.com"; // Replace with actual privacy policy URL
-            Intent i = new Intent(Intent.ACTION_VIEW);
-            i.setData(android.net.Uri.parse(url));
-            startActivity(i);
+            startActivity(new Intent(this, PrivacyPolicyActivity.class));
         });
     }
 
