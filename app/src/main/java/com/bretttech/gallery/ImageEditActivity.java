@@ -24,7 +24,9 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -57,6 +59,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -105,6 +108,10 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     private float brightnessValue = 0f;
     private float contrastValue = 1f;
     private float saturationValue = 1f;
+    private final List<View> pinchGesturePatchedTextRoots = new ArrayList<>();
+    private View pendingEditTextRootView;
+    private String pendingEditTextValue;
+    private int pendingEditTextColor = Color.WHITE;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private final ActivityResultLauncher<Intent> uCropLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -211,20 +218,120 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
 
     private void openTextEditorForAdd() {
         TextEditorDialogFragment textEditorDialogFragment = TextEditorDialogFragment.show(this);
-        textEditorDialogFragment.setOnTextEditorListener((inputText, colorCode) -> {
+        textEditorDialogFragment.setOnTextEditorListener((inputText, colorCode, textSize) -> {
             final TextStyleBuilder styleBuilder = new TextStyleBuilder();
             styleBuilder.withTextColor(colorCode);
+            styleBuilder.withTextSize(textSize);
             mPhotoEditor.addText(inputText, styleBuilder);
+            mPhotoEditorView.post(this::ensureTextPinchFallbackInstalled);
         });
     }
 
     private void openTextEditorForExisting(View rootView, String text, int colorCode) {
         TextEditorDialogFragment textEditorDialogFragment = TextEditorDialogFragment.show(this, text, colorCode);
-        textEditorDialogFragment.setOnTextEditorListener((inputText, newColorCode) -> {
+        textEditorDialogFragment.setOnTextEditorListener((inputText, newColorCode, textSize) -> {
             TextStyleBuilder styleBuilder = new TextStyleBuilder();
             styleBuilder.withTextColor(newColorCode);
+            styleBuilder.withTextSize(textSize);
             mPhotoEditor.editText(rootView, inputText, styleBuilder);
         });
+    }
+
+    private void ensureTextPinchFallbackInstalled() {
+        List<View> textRoots = new ArrayList<>();
+        collectTextOverlayRoots(mPhotoEditorView, textRoots);
+        for (View textRoot : textRoots) {
+            if (!pinchGesturePatchedTextRoots.contains(textRoot)) {
+                attachPinchFallbackToTextRoot(textRoot);
+                pinchGesturePatchedTextRoots.add(textRoot);
+            }
+        }
+    }
+
+    private void collectTextOverlayRoots(View view, List<View> result) {
+        if (view == null) return;
+
+        if (view.getTag() == ViewType.TEXT) {
+            result.add(view);
+            return;
+        }
+
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                collectTextOverlayRoots(group.getChildAt(i), result);
+            }
+        }
+    }
+
+    private void attachPinchFallbackToTextRoot(View textRoot) {
+        View.OnTouchListener originalTouchListener = getExistingTouchListener(textRoot);
+        if (originalTouchListener == null) return;
+
+        final float minScale = 0.5f;
+        final float maxScale = 8f;
+        final float pinchSensitivity = 0.35f;
+        ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(this,
+                new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    @Override
+                    public boolean onScaleBegin(ScaleGestureDetector detector) {
+                        textRoot.bringToFront();
+                        return true;
+                    }
+
+                    @Override
+                    public boolean onScale(ScaleGestureDetector detector) {
+                        float smoothScaleFactor = (float) Math.pow(detector.getScaleFactor(), pinchSensitivity);
+                        float nextScale = textRoot.getScaleX() * smoothScaleFactor;
+                        nextScale = Math.max(minScale, Math.min(maxScale, nextScale));
+                        textRoot.setScaleX(nextScale);
+                        textRoot.setScaleY(nextScale);
+                        textRoot.bringToFront();
+                        return true;
+                    }
+                });
+
+        textRoot.setOnTouchListener(new View.OnTouchListener() {
+            private boolean inPinch = false;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                int action = event.getActionMasked();
+
+                if (action == MotionEvent.ACTION_POINTER_DOWN || event.getPointerCount() > 1) {
+                    inPinch = true;
+                    textRoot.bringToFront();
+                }
+
+                if (inPinch || event.getPointerCount() > 1) {
+                    scaleGestureDetector.onTouchEvent(event);
+
+                    if (action == MotionEvent.ACTION_POINTER_UP || action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                        if (event.getPointerCount() <= 2) inPinch = false;
+                    }
+
+                    return true;
+                }
+
+                return originalTouchListener.onTouch(v, event);
+            }
+        });
+    }
+
+    private View.OnTouchListener getExistingTouchListener(View view) {
+        try {
+            Field listenerInfoField = View.class.getDeclaredField("mListenerInfo");
+            listenerInfoField.setAccessible(true);
+            Object listenerInfo = listenerInfoField.get(view);
+            if (listenerInfo == null) return null;
+
+            Field onTouchListenerField = Class.forName("android.view.View$ListenerInfo")
+                    .getDeclaredField("mOnTouchListener");
+            onTouchListenerField.setAccessible(true);
+            return (View.OnTouchListener) onTouchListenerField.get(listenerInfo);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private void loadBitmapFromUri(Uri uri) {
@@ -295,7 +402,15 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         } else if (id == R.id.imgFlip) {
             flipHorizontal();
         } else if (id == R.id.tool_text) {
-            openTextEditorForAdd();
+            if (pendingEditTextRootView != null && pendingEditTextRootView.getParent() != null) {
+                openTextEditorForExisting(
+                        pendingEditTextRootView,
+                        pendingEditTextValue == null ? "" : pendingEditTextValue,
+                        pendingEditTextColor
+                );
+            } else {
+                openTextEditorForAdd();
+            }
         } else if (id == R.id.tool_decorate) {
             mPhotoEditor.setBrushDrawingMode(true);
             setupBrushPanel();
@@ -339,8 +454,8 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     private void setupAdjustmentsPanel() {
         List<AdjustmentsAdapter.AdjustmentTool> tools = new ArrayList<>();
         tools.add(new AdjustmentsAdapter.AdjustmentTool("Brightness", R.drawable.ic_brightness, true));
-        tools.add(new AdjustmentsAdapter.AdjustmentTool("Contrast", R.drawable.ic_filter, false));
-        tools.add(new AdjustmentsAdapter.AdjustmentTool("Saturation", R.drawable.ic_filter, false));
+        tools.add(new AdjustmentsAdapter.AdjustmentTool("Contrast", R.drawable.ic_contrast, false));
+        tools.add(new AdjustmentsAdapter.AdjustmentTool("Saturation", R.drawable.ic_saturation, false));
 
         AdjustmentsAdapter adapter = new AdjustmentsAdapter(this, tools, tool -> {
             currentAdjustmentType = tool.name;
@@ -472,12 +587,6 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
                     }
                 });
             }
-
-            @Override
-            public void onFailure(Exception e) {
-                Log.e(TAG, "Failed to save bitmap", e);
-                runOnUiThread(() -> Toast.makeText(ImageEditActivity.this, "Failed to save image.", Toast.LENGTH_SHORT).show());
-            }
         });
     }
 
@@ -605,10 +714,18 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
 
     @Override
     public void onEditTextChangeListener(final View rootView, String text, int colorCode) {
-        openTextEditorForExisting(rootView, text, colorCode);
+        pendingEditTextRootView = rootView;
+        pendingEditTextValue = text;
+        pendingEditTextColor = colorCode;
+        Toast.makeText(this, "Text selected. Tap Text tool to edit.", Toast.LENGTH_SHORT).show();
     }
 
-    @Override public void onAddViewListener(ViewType viewType, int numberOfAddedViews) {}
+    @Override
+    public void onAddViewListener(ViewType viewType, int numberOfAddedViews) {
+        if (viewType == ViewType.TEXT) {
+            mPhotoEditorView.post(this::ensureTextPinchFallbackInstalled);
+        }
+    }
     @Override public void onRemoveViewListener(ViewType viewType, int numberOfAddedViews) {}
     @Override public void onStartViewChangeListener(ViewType viewType) {}
     @Override public void onStopViewChangeListener(ViewType viewType) {}

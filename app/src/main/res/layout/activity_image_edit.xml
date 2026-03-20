@@ -140,10 +140,10 @@
                 android:paddingBottom="8dp">
                 <TextView
                     android:id="@+id/tool_crop_rotate" style="@style/EditorToolTextStyle"
-                    android:drawableTop="@drawable/ic_edit" android:text="Crop &amp; Rotate" />
+                    android:drawableTop="@drawable/ic_crop" android:text="Crop &amp; Rotate" />
                 <TextView
                     android:id="@+id/tool_adjust" style="@style/EditorToolTextStyle"
-                    android:drawableTop="@drawable/ic_sort" android:text="Adjust" />
+                    android:drawableTop="@drawable/ic_tune" android:text="Adjust" />
                 <TextView
                     android:id="@+id/tool_filters" style="@style/EditorToolTextStyle"
                     android:drawableTop="@drawable/ic_filter" android:text="Filters" />

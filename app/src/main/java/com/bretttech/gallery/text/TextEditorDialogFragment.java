@@ -10,6 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
@@ -28,27 +29,37 @@ public class TextEditorDialogFragment extends DialogFragment {
     public static final String TAG = TextEditorDialogFragment.class.getSimpleName();
     public static final String EXTRA_INPUT_TEXT = "extra_input_text";
     public static final String EXTRA_COLOR_CODE = "extra_color_code";
+    public static final String EXTRA_TEXT_SIZE = "extra_text_size";
+    private static final int DEFAULT_TEXT_SIZE = 40;
 
     private EditText mAddTextEditText;
+    private TextView mTextSizeLabel;
+    private SeekBar mTextSizeSeekBar;
     private int mColorCode;
+    private int mTextSize = DEFAULT_TEXT_SIZE;
     private TextEditorListener mTextEditorListener;
 
     public interface TextEditorListener {
-        void onDone(String inputText, int colorCode);
+        void onDone(String inputText, int colorCode, float textSize);
     }
 
-    public static TextEditorDialogFragment show(@NonNull AppCompatActivity appCompatActivity, @NonNull String inputText, @ColorInt int colorCode) {
+    public static TextEditorDialogFragment show(@NonNull AppCompatActivity appCompatActivity, @NonNull String inputText, @ColorInt int colorCode, int textSize) {
         Bundle args = new Bundle();
         args.putString(EXTRA_INPUT_TEXT, inputText);
         args.putInt(EXTRA_COLOR_CODE, colorCode);
+        args.putInt(EXTRA_TEXT_SIZE, textSize);
         TextEditorDialogFragment fragment = new TextEditorDialogFragment();
         fragment.setArguments(args);
         fragment.show(appCompatActivity.getSupportFragmentManager(), TAG);
         return fragment;
     }
 
+    public static TextEditorDialogFragment show(@NonNull AppCompatActivity appCompatActivity, @NonNull String inputText, @ColorInt int colorCode) {
+        return show(appCompatActivity, inputText, colorCode, DEFAULT_TEXT_SIZE);
+    }
+
     public static TextEditorDialogFragment show(@NonNull AppCompatActivity appCompatActivity) {
-        return show(appCompatActivity, "", ContextCompat.getColor(appCompatActivity, R.color.white));
+        return show(appCompatActivity, "", ContextCompat.getColor(appCompatActivity, R.color.white), DEFAULT_TEXT_SIZE);
     }
 
     @Override
@@ -74,10 +85,34 @@ public class TextEditorDialogFragment extends DialogFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         mAddTextEditText = view.findViewById(R.id.add_text_edit_text);
+        mTextSizeLabel = view.findViewById(R.id.text_size_label);
+        mTextSizeSeekBar = view.findViewById(R.id.text_size_seekbar);
         TextView mAddTextDoneTextView = view.findViewById(R.id.add_text_done_tv);
         RecyclerView colorsRecyclerView = view.findViewById(R.id.colors_recycler_view);
 
         setupColorPicker(colorsRecyclerView);
+
+        if (getArguments() != null) {
+            mColorCode = getArguments().getInt(EXTRA_COLOR_CODE);
+            mTextSize = getArguments().getInt(EXTRA_TEXT_SIZE, DEFAULT_TEXT_SIZE);
+            mAddTextEditText.setText(getArguments().getString(EXTRA_INPUT_TEXT));
+            mAddTextEditText.setTextColor(mColorCode);
+        }
+
+        mAddTextEditText.setTextSize(mTextSize);
+        mTextSizeSeekBar.setProgress(mTextSize - 8);
+        mTextSizeLabel.setText("Size: " + mTextSize + "sp");
+
+        mTextSizeSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                mTextSize = progress + 8;
+                mAddTextEditText.setTextSize(mTextSize);
+                mTextSizeLabel.setText("Size: " + mTextSize + "sp");
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
 
         InputMethodManager inputMethodManager = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
         mAddTextEditText.requestFocus();
@@ -92,15 +127,9 @@ public class TextEditorDialogFragment extends DialogFragment {
             dismiss();
             String inputText = mAddTextEditText.getText().toString();
             if (!TextUtils.isEmpty(inputText) && mTextEditorListener != null) {
-                mTextEditorListener.onDone(inputText, mColorCode);
+                mTextEditorListener.onDone(inputText, mColorCode, mTextSize);
             }
         });
-
-        if (getArguments() != null) {
-            mColorCode = getArguments().getInt(EXTRA_COLOR_CODE);
-            mAddTextEditText.setText(getArguments().getString(EXTRA_INPUT_TEXT));
-            mAddTextEditText.setTextColor(mColorCode);
-        }
     }
 
     private void setupColorPicker(RecyclerView recyclerView) {

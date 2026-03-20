@@ -4,8 +4,8 @@
     android:viewportWidth="24.0"
     android:viewportHeight="24.0"
     android:tint="?attr/colorControlNormal">
-    <!-- Material title icon (large T) for Text tool -->
+    <!-- Contrast icon: full circle outline + right half filled -->
     <path
         android:fillColor="@android:color/white"
-        android:pathData="M5,4v3h5.5v12h3V7H19V4H5z"/>
+        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM12,20V4c4.41,0 8,3.59 8,8s-3.59,8 -8,8z"/>
 </vector>

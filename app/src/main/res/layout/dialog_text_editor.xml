@@ -19,10 +19,35 @@
         android:textStyle="bold"
         android:textColor="@android:color/white"
         android:textColorHint="@android:color/darker_gray"
-        app:layout_constraintBottom_toTopOf="@id/colors_recycler_view"
+        app:layout_constraintBottom_toTopOf="@id/text_size_label"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/text_size_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="2dp"
+        android:text="Size: 40sp"
+        android:textColor="@android:color/white"
+        android:textSize="13sp"
+        app:layout_constraintBottom_toTopOf="@id/text_size_seekbar"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <SeekBar
+        android:id="@+id/text_size_seekbar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:max="92"
+        android:progress="32"
+        app:layout_constraintBottom_toTopOf="@id/colors_recycler_view"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/colors_recycler_view"
