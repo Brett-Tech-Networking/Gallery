@@ -37,6 +37,7 @@ import com.bretttech.gallery.VideoPlayerActivity;
 import com.bretttech.gallery.WallpaperPreviewActivity;
 import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.databinding.FragmentAlbumDetailBinding;
+import com.bretttech.gallery.ui.common.FastScroller;
 import com.bretttech.gallery.ui.pictures.Image;
 import com.bretttech.gallery.ui.pictures.MoveToAlbumDialogFragment;
 import com.bretttech.gallery.ui.pictures.PicturesAdapter;
@@ -130,6 +131,8 @@ public class AlbumDetailFragment extends Fragment implements androidx.appcompat.
         bucketId = getArguments() != null ? getArguments().getLong("bucketId", 0) : 0;
 
         setupRecyclerView();
+
+        binding.fastScroller.attachToRecyclerView(binding.recyclerViewAlbumDetail);
 
         if (albumFolderPath != null) {
             viewModel.loadImagesFromAlbum(albumFolderPath, bucketId);

@@ -38,6 +38,7 @@ import com.bretttech.gallery.VideoPlayerActivity;
 import com.bretttech.gallery.data.FavoritesManager;
 import com.bretttech.gallery.databinding.FragmentPicturesBinding;
 import com.bretttech.gallery.ui.albums.AlbumsViewModel;
+import com.bretttech.gallery.ui.common.FastScroller;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -111,6 +112,8 @@ public class PicturesFragment extends Fragment implements androidx.appcompat.vie
         binding = FragmentPicturesBinding.inflate(inflater, container, false);
 
         setupRecyclerView();
+
+        binding.fastScroller.attachToRecyclerView(binding.recyclerViewPictures);
 
         picturesViewModel.getImages().observe(getViewLifecycleOwner(), images -> {
             this.images = images;

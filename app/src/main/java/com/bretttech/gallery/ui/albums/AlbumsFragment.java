@@ -49,6 +49,7 @@ import androidx.transition.TransitionManager;
 import com.bretttech.gallery.R;
 import com.bretttech.gallery.SharedViewModel;
 import com.bretttech.gallery.SettingsActivity;
+import com.bretttech.gallery.ui.common.FastScroller;
 import com.bretttech.gallery.ui.pictures.Image;
 import java.io.File;
 import java.util.ArrayList;
@@ -158,6 +159,9 @@ public class AlbumsFragment extends Fragment implements androidx.appcompat.view.
         });
 
         setupPinchToZoom();
+
+        FastScroller fastScroller = root.findViewById(R.id.fast_scroller);
+        fastScroller.attachToRecyclerView(recyclerView);
 
         return root;
     }
