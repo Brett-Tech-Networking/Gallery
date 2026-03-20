@@ -2,82 +2,101 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/editor_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black"
-    android:fitsSystemWindows="true"
     tools:context=".ImageEditActivity">
 
     <LinearLayout
         android:id="@+id/top_action_bar"
         android:layout_width="0dp"
-        android:layout_height="?attr/actionBarSize"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
         android:background="#1C1C1C"
-        android:gravity="center_vertical"
+        android:gravity="bottom|center_horizontal"
         android:orientation="horizontal"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
+        <!-- Left group: close + share -->
         <ImageButton
             android:id="@+id/imgClose"
-            android:layout_width="?attr/actionBarSize"
-            android:layout_height="match_parent"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Close Editor"
-            android:padding="14dp"
+            android:padding="10dp"
             android:src="@drawable/ic_close"
             app:tint="@android:color/white" />
         <ImageButton
             android:id="@+id/imgShare"
-            android:layout_width="?attr/actionBarSize"
-            android:layout_height="match_parent"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="14dp"
+            android:contentDescription="Share"
+            android:padding="10dp"
             android:src="@drawable/ic_share"
-            app:tint="@android:color/white"/>
+            app:tint="@android:color/white" />
+
+        <!-- Spacer pushes right group to the end -->
         <Space
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="0dp"
             android:layout_weight="1" />
+
+        <!-- Right group: undo / redo / rotate / flip / save -->
         <ImageButton
             android:id="@+id/imgUndo"
-            android:layout_width="?attr/actionBarSize"
-            android:layout_height="match_parent"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="14dp"
+            android:contentDescription="Undo"
+            android:padding="10dp"
             android:src="@drawable/ic_undo"
             app:tint="@android:color/white" />
         <ImageButton
             android:id="@+id/imgRedo"
-            android:layout_width="?attr/actionBarSize"
-            android:layout_height="match_parent"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="14dp"
+            android:contentDescription="Redo"
+            android:padding="10dp"
             android:src="@drawable/ic_redo"
             app:tint="@android:color/white" />
         <ImageButton
             android:id="@+id/imgRotate"
-            android:layout_width="?attr/actionBarSize"
-            android:layout_height="match_parent"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="14dp"
-            android:src="@drawable/ic_restore"
+            android:contentDescription="Rotate 90°"
+            android:padding="10dp"
+            android:src="@drawable/ic_rotate_right"
             app:tint="@android:color/white" />
         <ImageButton
             android:id="@+id/imgFlip"
-            android:layout_width="?attr/actionBarSize"
-            android:layout_height="match_parent"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="14dp"
-            android:src="@drawable/ic_move"
+            android:contentDescription="Flip horizontally"
+            android:padding="10dp"
+            android:src="@drawable/ic_flip_horizontal"
             app:tint="@android:color/white" />
         <ImageButton
             android:id="@+id/imgSave"
-            android:layout_width="?attr/actionBarSize"
-            android:layout_height="match_parent"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="14dp"
+            android:contentDescription="Save"
+            android:padding="10dp"
             android:src="@drawable/ic_save"
             app:tint="@android:color/white" />
     </LinearLayout>

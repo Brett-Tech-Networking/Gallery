@@ -107,9 +107,9 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
 
         <activity
-            android:name="com.yalantis.ucrop.UCropActivity"
+            android:name=".UCropWrapperActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+            android:theme="@style/Theme.Gallery.UCrop"/>
 
         <activity
             android:name=".ImageEditActivity"

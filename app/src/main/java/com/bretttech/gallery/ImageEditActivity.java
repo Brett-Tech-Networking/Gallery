@@ -39,6 +39,10 @@ import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.exifinterface.media.ExifInterface;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -93,6 +97,9 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     private SeekBar brushSizeSeekbar;
     private RecyclerView colorPickerRecyclerView;
 
+    private View editorRoot;
+    private View topActionBar;
+    private View bottomBarContainer;
 
     private String currentAdjustmentType = "Brightness";
     private float brightnessValue = 0f;
@@ -130,6 +137,7 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         setContentView(R.layout.activity_image_edit);
         if (getSupportActionBar() != null) getSupportActionBar().hide();
         initViews();
+        applySystemInsets();
         setupPhotoEditor();
         setupListeners();
         setupOnBackPressed();
@@ -146,6 +154,10 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     }
 
     private void initViews() {
+        editorRoot = findViewById(R.id.editor_root);
+        topActionBar = findViewById(R.id.top_action_bar);
+        bottomBarContainer = findViewById(R.id.bottom_bar_container);
+
         mPhotoEditorView = findViewById(R.id.photoEditorView);
         mainToolNavigation = findViewById(R.id.main_tool_navigation);
         toolPropertiesContainer = findViewById(R.id.tool_properties_container);
@@ -165,8 +177,54 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     }
 
     private void setupPhotoEditor() {
-        mPhotoEditor = new PhotoEditor.Builder(this, mPhotoEditorView).build();
+        mPhotoEditor = new PhotoEditor.Builder(this, mPhotoEditorView)
+                .setPinchTextScalable(true)
+                .build();
         mPhotoEditor.setOnPhotoEditorListener(this);
+    }
+
+    private void applySystemInsets() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        ViewCompat.setOnApplyWindowInsetsListener(editorRoot, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+
+            // Use absolute values — top bar grows downward via wrap_content + paddingTop
+            topActionBar.setPadding(
+                    0,
+                    systemBars.top,
+                    0,
+                    0
+            );
+
+            // Bottom bar gains navigation-bar clearance
+            bottomBarContainer.setPadding(
+                    0,
+                    0,
+                    0,
+                    systemBars.bottom
+            );
+
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(editorRoot);
+    }
+
+    private void openTextEditorForAdd() {
+        TextEditorDialogFragment textEditorDialogFragment = TextEditorDialogFragment.show(this);
+        textEditorDialogFragment.setOnTextEditorListener((inputText, colorCode) -> {
+            final TextStyleBuilder styleBuilder = new TextStyleBuilder();
+            styleBuilder.withTextColor(colorCode);
+            mPhotoEditor.addText(inputText, styleBuilder);
+        });
+    }
+
+    private void openTextEditorForExisting(View rootView, String text, int colorCode) {
+        TextEditorDialogFragment textEditorDialogFragment = TextEditorDialogFragment.show(this, text, colorCode);
+        textEditorDialogFragment.setOnTextEditorListener((inputText, newColorCode) -> {
+            TextStyleBuilder styleBuilder = new TextStyleBuilder();
+            styleBuilder.withTextColor(newColorCode);
+            mPhotoEditor.editText(rootView, inputText, styleBuilder);
+        });
     }
 
     private void loadBitmapFromUri(Uri uri) {
@@ -237,12 +295,7 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         } else if (id == R.id.imgFlip) {
             flipHorizontal();
         } else if (id == R.id.tool_text) {
-            TextEditorDialogFragment textEditorDialogFragment = TextEditorDialogFragment.show(this);
-            textEditorDialogFragment.setOnTextEditorListener((inputText, colorCode) -> {
-                final TextStyleBuilder styleBuilder = new TextStyleBuilder();
-                styleBuilder.withTextColor(colorCode);
-                mPhotoEditor.addText(inputText, styleBuilder);
-            });
+            openTextEditorForAdd();
         } else if (id == R.id.tool_decorate) {
             mPhotoEditor.setBrushDrawingMode(true);
             setupBrushPanel();
@@ -498,10 +551,13 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
     private void startCrop(@NonNull Uri uri) {
         String destFileName = "CroppedImage_" + System.currentTimeMillis() + ".jpg";
         UCrop.Options options = new UCrop.Options();
-        options.setToolbarColor(ContextCompat.getColor(this, R.color.purple_700));
-        options.setStatusBarColor(ContextCompat.getColor(this, R.color.purple_700));
+        options.setToolbarColor(ContextCompat.getColor(this, android.R.color.black));
+        options.setStatusBarColor(ContextCompat.getColor(this, android.R.color.black));
+        options.setToolbarWidgetColor(ContextCompat.getColor(this, android.R.color.white));
+        options.setRootViewBackgroundColor(ContextCompat.getColor(this, android.R.color.black));
+        options.setActiveControlsWidgetColor(ContextCompat.getColor(this, R.color.teal_200));
         options.setHideBottomControls(false);
-        options.setFreeStyleCropEnabled(true); // allow free crop
+        options.setFreeStyleCropEnabled(true);
         options.setCompressionQuality(95);
 
         // Provide common aspect ratios for quick crop
@@ -514,7 +570,9 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
 
         UCrop u = UCrop.of(uri, Uri.fromFile(new File(getCacheDir(), destFileName)))
                 .withOptions(options);
-        uCropLauncher.launch(u.getIntent(this));
+        android.content.Intent intent = u.getIntent(this);
+        intent.setClass(this, UCropWrapperActivity.class);
+        uCropLauncher.launch(intent);
     }
 
     private void rotate90() {
@@ -545,7 +603,11 @@ public class ImageEditActivity extends AppCompatActivity implements OnPhotoEdito
         mPhotoEditor.setFilterEffect(photoFilter);
     }
 
-    @Override public void onEditTextChangeListener(final View rootView, String text, int colorCode) {}
+    @Override
+    public void onEditTextChangeListener(final View rootView, String text, int colorCode) {
+        openTextEditorForExisting(rootView, text, colorCode);
+    }
+
     @Override public void onAddViewListener(ViewType viewType, int numberOfAddedViews) {}
     @Override public void onRemoveViewListener(ViewType viewType, int numberOfAddedViews) {}
     @Override public void onStartViewChangeListener(ViewType viewType) {}
