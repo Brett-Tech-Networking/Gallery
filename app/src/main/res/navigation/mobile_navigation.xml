@@ -47,6 +47,12 @@
         <action
             android:id="@+id/action_navigation_menu_to_favoritesFragment"
             app:destination="@id/favoritesFragment" />
+        <action
+            android:id="@+id/action_navigation_menu_to_duplicatesFragment"
+            app:destination="@id/duplicatesFragment" />
+        <action
+            android:id="@+id/action_navigation_menu_to_shreddingFragment"
+            app:destination="@id/shreddingFragment" />
     </dialog>
 
     <fragment
@@ -82,5 +88,17 @@
         android:name="com.bretttech.gallery.ui.albums.HiddenAlbumsFragment"
         android:label="@string/title_hide_albums"
         tools:layout="@layout/fragment_hidden_albums" />
+
+    <fragment
+        android:id="@+id/duplicatesFragment"
+        android:name="com.bretttech.gallery.ui.duplicates.DuplicatesFragment"
+        android:label="@string/title_duplicate_finder"
+        tools:layout="@layout/fragment_duplicates" />
+
+    <fragment
+        android:id="@+id/shreddingFragment"
+        android:name="com.bretttech.gallery.ui.shredding.ShreddingFragment"
+        android:label="@string/title_image_shredding"
+        tools:layout="@layout/fragment_shredding" />
 
 </navigation>

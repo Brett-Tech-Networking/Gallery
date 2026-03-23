@@ -52,6 +52,14 @@ public class MenuFragment extends BottomSheetDialogFragment {
         binding.menuPopup.menuFavorites.setOnClickListener(v -> {
             navController.navigate(R.id.action_navigation_menu_to_favoritesFragment);
         });
+
+        binding.menuPopup.menuDuplicateFinder.setOnClickListener(v -> {
+            navController.navigate(R.id.action_navigation_menu_to_duplicatesFragment);
+        });
+
+        binding.menuPopup.menuImageShredding.setOnClickListener(v -> {
+            navController.navigate(R.id.action_navigation_menu_to_shreddingFragment);
+        });
     }
 
     @Override

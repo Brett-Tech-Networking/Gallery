@@ -89,4 +89,11 @@
     <string name="folder_movies">Movies</string>
     <string name="folder_download">Downloads</string>
     <string name="folder_screenshots">Screenshots</string>
+
+    <string name="title_duplicate_finder">Duplicate Finder</string>
+    <string name="title_image_shredding">Secure Delete</string>
+    <string name="no_duplicates_found">No duplicates found</string>
+    <string name="no_images_available">No images available</string>
+    <string name="delete_selected">Delete Selected</string>
+    <string name="rescan">Rescan</string>
 </resources>
